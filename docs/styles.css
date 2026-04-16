@@ -53,7 +53,7 @@ nav {
 }
 nav .container { display: flex; align-items: center; justify-content: space-between; }
 .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 18px; }
-.brand-logo { width: 28px; height: 28px; border-radius: 8px; background: var(--accent); display: inline-flex; align-items: center; justify-content: center; font-size: 14px; color: #000; font-weight: 800; }
+.brand-logo { width: 28px; height: 28px; border-radius: 8px; object-fit: cover; display: block; }
 .nav-links { display: flex; gap: 24px; font-size: 14px; }
 .nav-links a { color: var(--text-secondary); }
 .nav-links a:hover { color: var(--text); text-decoration: none; }
@@ -182,7 +182,8 @@ nav .container { display: flex; align-items: center; justify-content: space-betw
   font-size: clamp(40px, 6vw, 68px);
   font-weight: 800;
   letter-spacing: -1.5px;
-  line-height: 1.05;
+  line-height: 1.15;          /* was 1.05 — descenders like g/y were getting clipped */
+  padding-bottom: 0.12em;     /* extra room below the baseline for background-clip text */
   margin-bottom: 20px;
   background: linear-gradient(180deg, #ffffff 30%, var(--accent) 130%);
   -webkit-background-clip: text;
