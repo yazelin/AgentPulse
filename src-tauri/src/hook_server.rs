@@ -131,7 +131,6 @@ fn parse_provider(data: &[u8]) -> String {
 
 /// Normalize different CLI event names to a common set
 fn normalize_event_name(event: &mut HookEvent) {
-    // All three CLIs (Claude, Gemini, Codex) use the same event names after normalization
     let normalized = match event.hook_event_name.as_str() {
         // Gemini CLI events → standard names
         "BeforeAgent" => "SessionStart",
@@ -140,7 +139,15 @@ fn normalize_event_name(event: &mut HookEvent) {
         "AfterTool" => "PostToolUse",
         "BeforeModel" => "UserPromptSubmit",
         "AfterModel" => "Stop",
-        // Already standard names (Claude + Codex use these directly)
+        // GitHub Copilot CLI events (camelCase) → standard names
+        "sessionStart" => "SessionStart",
+        "sessionEnd" => "SessionEnd",
+        "preToolUse" => "PreToolUse",
+        "postToolUse" => "PostToolUse",
+        "userPromptSubmitted" => "UserPromptSubmit",
+        "agentStop" | "subagentStop" => "Stop",
+        "errorOccurred" => "Notification",
+        // Already standard names (Claude + Codex use PascalCase)
         "SessionStart" | "SessionEnd" | "PreToolUse" | "PostToolUse" |
         "UserPromptSubmit" | "Stop" | "PermissionRequest" |
         "PostToolUseFailure" | "Notification" => event.hook_event_name.as_str(),

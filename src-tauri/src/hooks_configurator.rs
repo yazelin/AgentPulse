@@ -62,6 +62,7 @@ pub fn install_provider(provider_id: &str, config: &ProviderConfig, port: u16) -
         "claude" => install_claude_hooks(&path, port),
         "gemini" => install_gemini_hooks(&path, port),
         "codex" => install_codex_hooks(&path, port),
+        "copilot" => install_copilot_hooks(&path, port),
         _ => Err(format!("Unknown provider: {provider_id}")),
     }
 }
@@ -214,6 +215,49 @@ fn install_codex_hooks(path: &PathBuf, port: u16) -> Result<(), String> {
 
     save_json(path, &hooks_json)?;
     info!("Codex CLI hooks configured on port {port}");
+    Ok(())
+}
+
+/// GitHub Copilot CLI: hooks in ~/.copilot/config.json
+fn install_copilot_hooks(path: &PathBuf, port: u16) -> Result<(), String> {
+    let mut root = load_or_create_json(path)?;
+
+    let hooks = root
+        .as_object_mut()
+        .ok_or("config.json root is not an object")?
+        .entry("hooks")
+        .or_insert_with(|| json!({}));
+
+    let curl_cmd = format!(
+        "curl -sf -m 2 -X POST -H 'Content-Type: application/json' \
+         -d \"$(cat)\" http://localhost:$(cat ~/.agentpulse/port 2>/dev/null || echo {port})/hook/copilot || true"
+    );
+
+    // Copilot uses "bash" field instead of "command", no "matcher"
+    let events = [
+        "sessionStart", "sessionEnd", "userPromptSubmitted",
+        "preToolUse", "postToolUse", "agentStop",
+    ];
+
+    for event in events {
+        let hook_entry = json!({
+            "type": "command",
+            "bash": curl_cmd
+        });
+
+        let event_hooks = hooks
+            .as_object_mut()
+            .ok_or("hooks is not an object")?
+            .entry(event)
+            .or_insert_with(|| json!([]));
+
+        if let Value::Array(ref mut arr) = event_hooks {
+            arr.push(hook_entry);
+        }
+    }
+
+    save_json(path, &root)?;
+    info!("GitHub Copilot CLI hooks configured on port {port}");
     Ok(())
 }
 

@@ -65,7 +65,7 @@ fn default_providers() -> HashMap<String, ProviderConfig> {
     m.insert("copilot".into(), ProviderConfig {
         enabled: false,
         name: "GitHub Copilot".into(),
-        settings_path: None,
+        settings_path: Some("~/.copilot/config.json".into()),
     });
     m.insert("codex".into(), ProviderConfig {
         enabled: false,
