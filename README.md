@@ -174,30 +174,25 @@ Audio playback uses [`rodio`](https://github.com/RustAudio/rodio) (Rust-side, no
 
 ## Install
 
-### Linux — AppImage (no install needed)
+v0.2 releases ship as plain zip archives — no installer, no package manager. Download, unzip, run. The zip contains the main binary plus the `agent-pulse-hook` sidecar; **keep the two files in the same folder** (the main app locates the sidecar at its own sibling path).
+
+### Linux / macOS
 
 ```bash
-chmod +x AgentPulse_0.1.0_amd64.AppImage
-./AgentPulse_0.1.0_amd64.AppImage
+# download agent-pulse-v0.2.0-linux.zip (or -macos.zip) from the Releases page
+unzip agent-pulse-v0.2.0-linux.zip -d agent-pulse
+cd agent-pulse
+chmod +x agent-pulse agent-pulse-hook
+./agent-pulse
 ```
 
-### Linux — .deb (Ubuntu / Debian)
+### Windows
 
-```bash
-sudo dpkg -i AgentPulse_0.1.0_amd64.deb
-agent-pulse
-```
+1. Download `agent-pulse-v0.2.0-windows.zip` from the Releases page
+2. Right-click the zip → Extract All → pick any folder
+3. Double-click `agent-pulse.exe` (Windows SmartScreen may warn on first run since the binary isn't code-signed; click **More info → Run anyway**)
 
-### Linux — .rpm (Fedora / RHEL)
-
-```bash
-sudo rpm -i AgentPulse-0.1.0-1.x86_64.rpm
-agent-pulse
-```
-
-### Windows / macOS
-
-Download from [Releases](../../releases/latest).
+Latest release: [Releases](../../releases/latest).
 
 ## Build from Source
 

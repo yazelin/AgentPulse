@@ -1,7 +1,7 @@
 {
-  "name": "claude-pulse",
-  "version": "0.1.0",
-  "description": "Cross-platform Dynamic Island monitor for Claude Code sessions",
+  "name": "agent-pulse",
+  "version": "0.2.0",
+  "description": "Cross-platform Dynamic Island monitor for AI coding assistant sessions",
   "scripts": {
     "tauri": "cargo tauri",
     "dev": "cargo tauri dev",

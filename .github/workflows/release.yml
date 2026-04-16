@@ -1,0 +1,87 @@
+name: Release
+
+# Tag-triggered release: builds all 3 platforms, zips the two binaries
+# (agent-pulse + agent-pulse-hook sidecar), and attaches each platform's
+# zip to a GitHub Release. The Release is created as a draft so you can
+# review and publish manually.
+#
+# Trigger by pushing a tag matching v*:
+#   git tag v0.2.0
+#   git push origin v0.2.0
+#
+# Manual dispatch is also allowed (uses the workflow's own git ref as tag).
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: ubuntu-22.04
+            name: linux
+          - platform: macos-latest
+            name: macos
+          - platform: windows-latest
+            name: windows
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install Linux dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libasound2-dev \
+            libsoup-3.0-dev \
+            libjavascriptcoregtk-4.1-dev
+
+      - name: Install cargo-binstall
+        uses: cargo-bins/cargo-binstall@main
+
+      - name: Install Tauri CLI
+        run: cargo binstall -y tauri-cli@^2.0
+
+      - name: Build (no bundle)
+        run: cargo tauri build --no-bundle
+
+      - name: Package zip
+        shell: bash
+        run: |
+          cd src-tauri/target/release
+          ZIP_NAME="agent-pulse-${{ github.ref_name }}-${{ matrix.name }}.zip"
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            7z a -tzip "$ZIP_NAME" agent-pulse.exe agent-pulse-hook.exe
+          else
+            zip "$ZIP_NAME" agent-pulse agent-pulse-hook
+          fi
+          mv "$ZIP_NAME" "$GITHUB_WORKSPACE/"
+
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: agent-pulse-${{ github.ref_name }}-${{ matrix.name }}.zip
+          draft: true
+          generate_release_notes: true
