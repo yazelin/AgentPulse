@@ -25,6 +25,9 @@ pub struct HookEvent {
     pub notification_type: Option<String>,
     #[serde(default)]
     pub prompt: Option<String>,
+    /// Window ID captured at hook execution time (from X-Window-Id header)
+    #[serde(default)]
+    pub window_id: Option<u64>,
 }
 
 impl RawHookEvent {
@@ -72,6 +75,7 @@ impl RawHookEvent {
             tool_name,
             notification_type,
             prompt,
+            window_id: None, // set later from HTTP header
         }
     }
 }

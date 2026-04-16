@@ -66,6 +66,113 @@ fn check_provider_setup(provider_id: String, config_state: tauri::State<AppConfi
     }
 }
 
+/// Get the sounds directory, creating it if needed
+fn sounds_dir() -> std::path::PathBuf {
+    let dir = dirs::config_dir()
+        .unwrap_or_else(|| dirs::home_dir().unwrap().join(".config"))
+        .join("agentpulse")
+        .join("sounds");
+    let _ = std::fs::create_dir_all(&dir);
+    dir
+}
+
+#[tauri::command]
+fn list_sounds() -> Vec<String> {
+    let dir = sounds_dir();
+    let mut sounds: Vec<String> = std::fs::read_dir(&dir)
+        .ok()
+        .map(|entries| {
+            entries
+                .filter_map(|e| e.ok())
+                .filter_map(|e| {
+                    let name = e.file_name().to_string_lossy().to_string();
+                    let lower = name.to_lowercase();
+                    if lower.ends_with(".mp3") || lower.ends_with(".wav") || lower.ends_with(".ogg") {
+                        Some(name)
+                    } else {
+                        None
+                    }
+                })
+                .collect()
+        })
+        .unwrap_or_default();
+    sounds.sort();
+    sounds
+}
+
+#[tauri::command]
+fn play_sound_file(name: String) {
+    let path = sounds_dir().join(&name);
+    if !path.exists() { return; }
+
+    // Spawn a thread so we don't block
+    std::thread::spawn(move || {
+        if let Ok((_stream, handle)) = rodio::OutputStream::try_default() {
+            if let Ok(file) = std::fs::File::open(&path) {
+                let buf = std::io::BufReader::new(file);
+                if let Ok(sink) = rodio::Sink::try_new(&handle) {
+                    if let Ok(decoder) = rodio::Decoder::new(buf) {
+                        sink.append(decoder);
+                        sink.set_volume(0.8);
+                        sink.sleep_until_end();
+                    }
+                }
+            }
+        }
+    });
+}
+
+#[tauri::command]
+fn open_sounds_folder() -> Result<(), String> {
+    let dir = sounds_dir();
+    let opener = if cfg!(target_os = "macos") { "open" }
+                 else if cfg!(target_os = "windows") { "explorer" }
+                 else { "xdg-open" };
+    std::process::Command::new(opener)
+        .arg(dir.to_string_lossy().to_string())
+        .spawn()
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+fn open_provider_settings(provider_id: String, config_state: tauri::State<AppConfigState>) -> Result<(), String> {
+    let config = config_state.0.lock().unwrap();
+    let provider = config.providers.get(&provider_id)
+        .ok_or(format!("Unknown provider: {provider_id}"))?;
+    let path = provider.settings_path.as_ref()
+        .ok_or("No settings path for this provider")?;
+    let expanded = config::expand_path(path);
+
+    // Use xdg-open on Linux, open on macOS, start on Windows
+    let opener = if cfg!(target_os = "macos") { "open" }
+                 else if cfg!(target_os = "windows") { "explorer" }
+                 else { "xdg-open" };
+
+    std::process::Command::new(opener)
+        .arg(expanded.to_string_lossy().to_string())
+        .spawn()
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+fn remove_provider_hooks(
+    provider_id: String,
+    config_state: tauri::State<AppConfigState>,
+) -> Result<(), String> {
+    let mut config = config_state.0.lock().unwrap();
+    let provider = config.providers.get(&provider_id)
+        .ok_or(format!("Unknown provider: {provider_id}"))?
+        .clone();
+    hooks_configurator::remove_provider(&provider_id, &provider)?;
+    if let Some(p) = config.providers.get_mut(&provider_id) {
+        p.enabled = false;
+    }
+    save_config(&config).ok();
+    Ok(())
+}
+
 #[tauri::command]
 fn install_provider_hooks(
     provider_id: String,
@@ -89,20 +196,6 @@ fn install_provider_hooks(
 #[tauri::command]
 fn get_server_port(port_state: tauri::State<ServerPort>) -> u16 {
     port_state.0
-}
-
-/// Get the currently active/focused window ID via xdotool
-fn get_active_window_id() -> Option<u64> {
-    std::process::Command::new("xdotool")
-        .arg("getactivewindow")
-        .output()
-        .ok()
-        .and_then(|o| {
-            String::from_utf8_lossy(&o.stdout)
-                .trim()
-                .parse::<u64>()
-                .ok()
-        })
 }
 
 #[tauri::command]
@@ -250,17 +343,17 @@ pub fn run() {
                         let h = handle.clone();
                         tokio::spawn(async move {
                             while let Some(event) = rx.recv().await {
-                                // Capture active window ID at event arrival time
-                                let active_wid = get_active_window_id();
+                                // Window ID comes from X-Window-Id header (captured by curl at hook time)
+                                let wid = event.window_id;
 
                                 let mgr = h.state::<AppSessionManager>();
                                 let completed = {
                                     let mut m = mgr.0.lock().unwrap();
-                                    m.handle_event(&event, active_wid)
+                                    m.handle_event(&event, wid)
                                 };
                                 let _ = h.emit("session-update", ());
                                 if completed {
-                                    let _ = h.emit("task-completed", ());
+                                    let _ = h.emit("task-completed", event.provider.clone());
                                 }
                             }
                         });
@@ -343,6 +436,11 @@ pub fn run() {
             detect_installed_providers,
             check_provider_setup,
             install_provider_hooks,
+            remove_provider_hooks,
+            open_provider_settings,
+            list_sounds,
+            play_sound_file,
+            open_sounds_folder,
             get_server_port,
             resize_window,
             bounce_window,

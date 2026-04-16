@@ -61,18 +61,16 @@
           <div><div class="setting-main-label">Sound on Complete</div><div class="setting-sub-label">Play a sound when work finishes</div></div>
           <label class="toggle"><input type="checkbox" id="toggle-sound" /><span class="toggle-slider"></span></label>
         </div>
-        <div id="sound-picker" class="setting-group hidden">
-          <span class="setting-label">Sound</span>
-          <div id="sound-dropdown" class="custom-dropdown">
-            <div class="dropdown-selected">Glass</div>
-            <div class="dropdown-options hidden">
-              <div class="dropdown-option active" data-value="glass">Glass</div>
-              <div class="dropdown-option" data-value="ping">Ping</div>
-              <div class="dropdown-option" data-value="pop">Pop</div>
-              <div class="dropdown-option" data-value="chime">Chime</div>
-              <div class="dropdown-option" data-value="bell">Bell</div>
-            </div>
+        <div id="sound-picker" class="setting-group-col hidden">
+          <div class="sound-header">
+            <label class="setting-label">Per-Provider Sounds</label>
+            <button id="btn-open-sounds" class="icon-btn" title="Open sounds folder">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
+              </svg>
+            </button>
           </div>
+          <div id="provider-sounds-list"></div>
         </div>
         <div class="setting-group-col">
           <label class="setting-label">Accent Color</label>

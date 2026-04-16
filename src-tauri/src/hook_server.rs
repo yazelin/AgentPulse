@@ -80,14 +80,18 @@ async fn handle_client(
 
     let data = &buf[..n];
 
-    // Parse provider from URL path: POST /hook/claude, /hook/gemini, etc.
+    // Parse provider from URL path and window ID from header
     let provider = parse_provider(data);
+    let window_id = parse_window_id(data);
 
     let response = if let Some(body_start) = find_body_start(data) {
         let body = &data[body_start..];
         match serde_json::from_slice::<crate::hook_event::RawHookEvent>(body) {
             Ok(raw) => {
                 let mut event = raw.normalize(&provider);
+
+                // Attach window ID from HTTP header
+                event.window_id = window_id;
 
                 // Normalize event names across CLIs
                 normalize_event_name(&mut event);
@@ -159,6 +163,21 @@ fn normalize_event_name(event: &mut HookEvent) {
         other => other,
     };
     event.hook_event_name = normalized.to_string();
+}
+
+/// Parse X-Window-Id header from HTTP request
+fn parse_window_id(data: &[u8]) -> Option<u64> {
+    let text = String::from_utf8_lossy(data);
+    for line in text.lines() {
+        if let Some(rest) = line.strip_prefix("X-Window-Id:") {
+            return rest.trim().parse().ok();
+        }
+        // Also check lowercase
+        if let Some(rest) = line.strip_prefix("x-window-id:") {
+            return rest.trim().parse().ok();
+        }
+    }
+    None
 }
 
 fn find_body_start(data: &[u8]) -> Option<usize> {

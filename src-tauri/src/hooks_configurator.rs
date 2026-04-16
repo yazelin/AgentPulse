@@ -51,8 +51,67 @@ pub fn provider_needs_setup(provider_id: &str, config: &ProviderConfig) -> bool 
     true
 }
 
-/// Install hooks for a provider
+/// Generate curl command that captures the terminal window ID via process tree
+/// Walks up the parent process tree to find a PID with an associated X11 window
+fn curl_cmd(provider_id: &str, port: u16) -> String {
+    // Shell snippet: walk up $PPID chain, find first PID with xdotool-searchable window
+    let find_window = r#"$(p=$PPID; w=""; while [ "$p" -gt 1 ]; do w=$(xdotool search --pid $p 2>/dev/null | head -1); [ -n "$w" ] && break; p=$(awk '{print $4}' /proc/$p/stat 2>/dev/null); [ -z "$p" ] && break; done; echo "$w")"#;
+
+    format!(
+        "curl -sf -m 2 -X POST \
+         -H 'Content-Type: application/json' \
+         -H \"X-Window-Id: {find_window}\" \
+         -d \"$(cat)\" \
+         http://localhost:$(cat ~/.agentpulse/port 2>/dev/null || echo {port})/hook/{provider_id} || true"
+    )
+}
+
+/// Remove only AgentPulse hooks (those containing "agentpulse" string) from a provider's config
+pub fn remove_provider(provider_id: &str, config: &ProviderConfig) -> Result<(), String> {
+    let path = match &config.settings_path {
+        Some(p) => expand_path(p),
+        None => return Ok(()),
+    };
+
+    if !path.exists() {
+        return Ok(());
+    }
+
+    let data = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
+    let mut root: Value = serde_json::from_str(&data)
+        .map_err(|e| format!("malformed JSON in {}: {e}", path.display()))?;
+
+    if let Some(Value::Object(hooks)) = root.get_mut("hooks") {
+        for (_event, entries) in hooks.iter_mut() {
+            if let Value::Array(arr) = entries {
+                arr.retain(|entry| {
+                    // Check if this entry contains an agentpulse hook
+                    let hook_list = if let Some(Value::Array(hl)) = entry.get("hooks") {
+                        hl.clone()
+                    } else {
+                        vec![entry.clone()]
+                    };
+                    !hook_list.iter().any(|h| {
+                        let cmd_str = h.get("command").and_then(|v| v.as_str()).unwrap_or("");
+                        let bash_str = h.get("bash").and_then(|v| v.as_str()).unwrap_or("");
+                        cmd_str.contains("agentpulse") || bash_str.contains("agentpulse")
+                    })
+                });
+            }
+        }
+    }
+
+    let formatted = serde_json::to_string_pretty(&root).map_err(|e| e.to_string())?;
+    std::fs::write(&path, formatted).map_err(|e| e.to_string())?;
+    info!("Removed AgentPulse hooks for {provider_id}");
+    Ok(())
+}
+
+/// Install hooks for a provider (removes existing AgentPulse hooks first to avoid duplicates)
 pub fn install_provider(provider_id: &str, config: &ProviderConfig, port: u16) -> Result<(), String> {
+    // Clean up any existing AgentPulse hooks first
+    let _ = remove_provider(provider_id, config);
+
     let path = match &config.settings_path {
         Some(p) => expand_path(p),
         None => return Err(format!("No settings path for provider {provider_id}")),
@@ -77,10 +136,7 @@ fn install_claude_hooks(path: &PathBuf, port: u16) -> Result<(), String> {
         .entry("hooks")
         .or_insert_with(|| json!({}));
 
-    let curl_cmd = format!(
-        "curl -sf -m 2 -X POST -H 'Content-Type: application/json' \
-         -d \"$(cat)\" http://localhost:$(cat ~/.agentpulse/port 2>/dev/null || echo {port})/hook/claude || true"
-    );
+    let cmd = curl_cmd("claude", port);
 
     let events = [
         "SessionStart", "SessionEnd", "UserPromptSubmit",
@@ -93,7 +149,7 @@ fn install_claude_hooks(path: &PathBuf, port: u16) -> Result<(), String> {
             "matcher": "",
             "hooks": [{
                 "type": "command",
-                "command": curl_cmd,
+                "command": cmd,
                 "async": true
             }]
         });
@@ -124,12 +180,8 @@ fn install_gemini_hooks(path: &PathBuf, port: u16) -> Result<(), String> {
         .entry("hooks")
         .or_insert_with(|| json!({}));
 
-    let curl_cmd = format!(
-        "curl -sf -m 2 -X POST -H 'Content-Type: application/json' \
-         -d \"$(cat)\" http://localhost:$(cat ~/.agentpulse/port 2>/dev/null || echo {port})/hook/gemini || true"
-    );
+    let cmd = curl_cmd("gemini", port);
 
-    // Gemini CLI hook events
     let events = [
         "SessionStart", "SessionEnd",
         "BeforeAgent", "AfterAgent",
@@ -143,7 +195,7 @@ fn install_gemini_hooks(path: &PathBuf, port: u16) -> Result<(), String> {
             "matcher": "",
             "hooks": [{
                 "type": "command",
-                "command": curl_cmd,
+                "command": cmd,
                 "async": true
             }]
         });
@@ -186,29 +238,26 @@ fn install_codex_hooks(path: &PathBuf, port: u16) -> Result<(), String> {
     }
 
     // 2. Write hooks.json
-    let curl_cmd = format!(
-        "curl -sf -m 2 -X POST -H 'Content-Type: application/json' \
-         -d \"$(cat)\" http://localhost:$(cat ~/.agentpulse/port 2>/dev/null || echo {port})/hook/codex || true"
-    );
+    let cmd = curl_cmd("codex", port);
 
     let hooks_json = json!({
         "hooks": {
             "SessionStart": [{
-                "hooks": [{ "type": "command", "command": curl_cmd }]
+                "hooks": [{ "type": "command", "command": cmd }]
             }],
             "UserPromptSubmit": [{
-                "hooks": [{ "type": "command", "command": curl_cmd }]
+                "hooks": [{ "type": "command", "command": cmd }]
             }],
             "PreToolUse": [{
                 "matcher": "",
-                "hooks": [{ "type": "command", "command": curl_cmd }]
+                "hooks": [{ "type": "command", "command": cmd }]
             }],
             "PostToolUse": [{
                 "matcher": "",
-                "hooks": [{ "type": "command", "command": curl_cmd }]
+                "hooks": [{ "type": "command", "command": cmd }]
             }],
             "Stop": [{
-                "hooks": [{ "type": "command", "command": curl_cmd }]
+                "hooks": [{ "type": "command", "command": cmd }]
             }]
         }
     });
@@ -228,12 +277,8 @@ fn install_copilot_hooks(path: &PathBuf, port: u16) -> Result<(), String> {
         .entry("hooks")
         .or_insert_with(|| json!({}));
 
-    let curl_cmd = format!(
-        "curl -sf -m 2 -X POST -H 'Content-Type: application/json' \
-         -d \"$(cat)\" http://localhost:$(cat ~/.agentpulse/port 2>/dev/null || echo {port})/hook/copilot || true"
-    );
+    let cmd = curl_cmd("copilot", port);
 
-    // Copilot uses "bash" field instead of "command", no "matcher"
     let events = [
         "sessionStart", "sessionEnd", "userPromptSubmitted",
         "preToolUse", "postToolUse", "agentStop",
@@ -242,7 +287,7 @@ fn install_copilot_hooks(path: &PathBuf, port: u16) -> Result<(), String> {
     for event in events {
         let hook_entry = json!({
             "type": "command",
-            "bash": curl_cmd
+            "bash": cmd
         });
 
         let event_hooks = hooks

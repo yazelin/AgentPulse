@@ -117,6 +117,14 @@ async function init() {
       if (currentView === "expanded" && !appConfig.appearance.pin_expanded) showView("capsule");
     });
     invoke("plugin:event|listen", { event: "cursor-left", target: { kind: "Any" }, handler: cb2 }).catch(() => {});
+
+    // Listen for task-completed → play provider-specific sound (only if enabled)
+    const soundCb = window.__TAURI_INTERNALS__.transformCallback((evt) => {
+      if (!appConfig.appearance.sound_enabled) return;
+      const provider = (evt && evt.payload) || "claude";
+      playProviderSound(provider);
+    });
+    invoke("plugin:event|listen", { event: "task-completed", target: { kind: "Any" }, handler: soundCb }).catch(() => {});
   }, 2000);
 
   // Pin
@@ -129,7 +137,7 @@ async function init() {
   });
 
   // Settings
-  $("btn-settings").addEventListener("click", () => { renderProviders(); showView("settings"); });
+  $("btn-settings").addEventListener("click", () => { renderProviders(); renderProviderSounds(); showView("settings"); });
   $("btn-close-settings").addEventListener("click", () => {
     appConfig.setup_done = true; saveConfig();
     showView(appConfig.appearance.pin_expanded ? "expanded" : "capsule");
@@ -149,7 +157,8 @@ async function init() {
     saveConfig();
   });
 
-  initCustomDropdown();
+  await renderProviderSounds();
+  $("btn-open-sounds").addEventListener("click", () => invoke("open_sounds_folder").catch(() => {}));
 
   document.querySelectorAll(".color-dot").forEach(d => d.addEventListener("click", () => {
     appConfig.appearance.accent_color = d.dataset.color;
@@ -193,12 +202,13 @@ async function renderProviders() {
                       : found ? "provider-found"
                       : "";
 
-    return `<label class="provider-item ${!canEnable ? 'disabled' : ''}">
+    return `<div class="provider-item ${!canEnable ? 'disabled' : ''}">
       <input type="checkbox" class="provider-check" data-provider="${id}" ${checked} ${!canEnable ? 'disabled' : ''}>
       ${providerIconHtml(id, 18)}
       <span class="provider-name">${esc(p.name)}</span>
       ${statusText ? `<span class="${statusClass}">${statusText}</span>` : ""}
-    </label>`;
+      ${canEnable ? `<button class="provider-open" data-provider="${id}" title="Open ${esc(p.name)} settings file"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="15" y2="17"/></svg></button>` : ""}
+    </div>`;
   }).join("");
 
   // Listen for toggle changes
@@ -206,40 +216,109 @@ async function renderProviders() {
     cb.addEventListener("change", async () => {
       const pid = cb.dataset.provider;
       if (cb.checked) {
-        // Enable and install hooks
-        try {
-          await invoke("install_provider_hooks", { providerId: pid });
-        } catch (e) {}
+        try { await invoke("install_provider_hooks", { providerId: pid }); } catch (e) {}
       } else {
-        // Just disable in config
-        appConfig.providers[pid].enabled = false;
-        await saveConfig();
+        // Remove hooks from CLI's settings file too
+        try { await invoke("remove_provider_hooks", { providerId: pid }); } catch (e) {}
       }
       appConfig = await invoke("get_config");
       appConfig.setup_done = true; saveConfig();
     });
   });
+
+  // Open settings file buttons
+  list.querySelectorAll(".provider-open").forEach(btn => {
+    btn.addEventListener("click", async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      try { await invoke("open_provider_settings", { providerId: btn.dataset.provider }); } catch (e) {}
+    });
+  });
 }
 
 // ─── Dropdown ───
-function initCustomDropdown() {
-  const wrapper = $("sound-dropdown");
-  const selected = wrapper.querySelector(".dropdown-selected");
-  const options = wrapper.querySelector(".dropdown-options");
+async function renderProviderSounds() {
+  const container = $("provider-sounds-list");
+  let sounds = [];
+  try { sounds = await invoke("list_sounds"); } catch(e) {}
 
-  selected.addEventListener("click", (e) => { e.stopPropagation(); options.classList.toggle("hidden"); });
-  wrapper.querySelectorAll(".dropdown-option").forEach(opt => {
-    opt.addEventListener("click", (e) => {
+  if (sounds.length === 0) {
+    container.innerHTML = `<div class="dropdown-empty">No sounds in folder. Click 📁 to add MP3/WAV/OGG files.</div>`;
+    return;
+  }
+
+  if (!appConfig.appearance.provider_sounds) appConfig.appearance.provider_sounds = {};
+
+  // Auto-match: if provider sound not set, find file starting with provider id
+  PROVIDER_ORDER.forEach(pid => {
+    if (!appConfig.appearance.provider_sounds[pid]) {
+      const match = sounds.find(s => s.toLowerCase().startsWith(pid + "."));
+      if (match) appConfig.appearance.provider_sounds[pid] = match;
+    }
+  });
+
+  container.innerHTML = PROVIDER_ORDER
+    .filter(pid => appConfig.providers[pid])
+    .map(pid => {
+      const p = appConfig.providers[pid];
+      const current = appConfig.appearance.provider_sounds[pid] || "(none)";
+      return `<div class="provider-sound-row">
+        ${providerIconHtml(pid, 16)}
+        <span class="provider-sound-name">${esc(p.name)}</span>
+        <div class="custom-dropdown sound-dd" data-provider="${pid}">
+          <div class="dropdown-selected">${esc(current)}</div>
+          <div class="dropdown-options hidden">
+            <div class="dropdown-option" data-value="">(none)</div>
+            ${sounds.map(s => `<div class="dropdown-option${s === current ? ' active' : ''}" data-value="${esc(s)}">${esc(s)}</div>`).join("")}
+          </div>
+        </div>
+        <button class="icon-btn play-btn" data-sound="${esc(current === "(none)" ? "" : current)}" title="Preview">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+        </button>
+      </div>`;
+    }).join("");
+
+  // Wire dropdowns
+  container.querySelectorAll(".sound-dd").forEach(dd => {
+    const selected = dd.querySelector(".dropdown-selected");
+    const options = dd.querySelector(".dropdown-options");
+    const pid = dd.dataset.provider;
+
+    selected.addEventListener("click", (e) => {
       e.stopPropagation();
-      selected.textContent = opt.textContent;
-      appConfig.appearance.sound_name = opt.dataset.value;
-      playSound(opt.dataset.value);
-      options.classList.add("hidden");
-      wrapper.querySelectorAll(".dropdown-option").forEach(o => o.classList.toggle("active", o.dataset.value === opt.dataset.value));
-      saveConfig();
+      // Close all other dropdowns
+      container.querySelectorAll(".dropdown-options").forEach(o => o !== options && o.classList.add("hidden"));
+      options.classList.toggle("hidden");
+    });
+
+    options.querySelectorAll(".dropdown-option").forEach(opt => {
+      opt.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const val = opt.dataset.value;
+        selected.textContent = val || "(none)";
+        appConfig.appearance.provider_sounds[pid] = val;
+        if (val) playSound(val);
+        options.classList.add("hidden");
+        options.querySelectorAll(".dropdown-option").forEach(o => o.classList.toggle("active", o.dataset.value === val));
+        // Update play button
+        const playBtn = dd.parentElement.querySelector(".play-btn");
+        if (playBtn) playBtn.dataset.sound = val;
+        saveConfig();
+      });
     });
   });
-  document.addEventListener("click", () => options.classList.add("hidden"));
+
+  // Wire preview buttons
+  container.querySelectorAll(".play-btn").forEach(btn => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      if (btn.dataset.sound) playSound(btn.dataset.sound);
+    });
+  });
+
+  document.addEventListener("click", () => {
+    container.querySelectorAll(".dropdown-options").forEach(o => o.classList.add("hidden"));
+  });
 }
 
 // ─── Config save ───
@@ -373,19 +452,15 @@ function applyTextSize(s) {
 }
 
 // ─── Sounds ───
-function playSound(name) {
-  try {
-    const ctx = new AudioContext(), osc = ctx.createOscillator(), g = ctx.createGain();
-    osc.connect(g); g.connect(ctx.destination); g.gain.setValueAtTime(0.2, ctx.currentTime); const t = ctx.currentTime;
-    switch (name) {
-      case "ping": osc.frequency.setValueAtTime(1200, t); g.gain.exponentialRampToValueAtTime(0.01, t + 0.15); osc.stop(t + 0.15); break;
-      case "pop": osc.frequency.setValueAtTime(600, t); osc.frequency.exponentialRampToValueAtTime(200, t + 0.08); g.gain.exponentialRampToValueAtTime(0.01, t + 0.1); osc.stop(t + 0.1); break;
-      case "chime": osc.type = "sine"; osc.frequency.setValueAtTime(523, t); osc.frequency.setValueAtTime(659, t + 0.15); osc.frequency.setValueAtTime(784, t + 0.3); g.gain.exponentialRampToValueAtTime(0.01, t + 0.5); osc.stop(t + 0.5); break;
-      case "bell": osc.type = "sine"; osc.frequency.setValueAtTime(880, t); g.gain.exponentialRampToValueAtTime(0.01, t + 0.8); osc.stop(t + 0.8); break;
-      default: osc.type = "sine"; osc.frequency.setValueAtTime(880, t); osc.frequency.setValueAtTime(1100, t + 0.1); g.gain.exponentialRampToValueAtTime(0.01, t + 0.3); osc.stop(t + 0.3);
-    }
-    osc.start(t);
-  } catch (e) {}
+async function playSound(name) {
+  if (!name) return;
+  try { await invoke("play_sound_file", { name }); } catch (e) {}
+}
+
+/// Play sound for a provider — uses user-configured per-provider sound
+async function playProviderSound(provider) {
+  const sound = appConfig.appearance.provider_sounds?.[provider];
+  if (sound) await playSound(sound);
 }
 
 function esc(s) { const d = document.createElement("div"); d.textContent = s; return d.innerHTML; }

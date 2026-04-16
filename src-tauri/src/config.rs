@@ -22,7 +22,11 @@ pub struct AppearanceConfig {
     pub pin_expanded: bool,
     #[serde(default)]
     pub sound_enabled: bool,
-    #[serde(default = "default_sound")]
+    /// Per-provider sound mapping: { "claude": "claude.mp3", "gemini": "gemini.mp3" }
+    #[serde(default)]
+    pub provider_sounds: std::collections::HashMap<String, String>,
+    /// Legacy field, kept for backward compat
+    #[serde(default)]
     pub sound_name: String,
 }
 
@@ -33,7 +37,8 @@ impl Default for AppearanceConfig {
             text_size: default_text_size(),
             pin_expanded: false,
             sound_enabled: false,
-            sound_name: default_sound(),
+            provider_sounds: std::collections::HashMap::new(),
+            sound_name: String::new(),
         }
     }
 }

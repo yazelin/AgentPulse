@@ -167,9 +167,18 @@ impl SessionManager {
                 Session::new(event.session_id.clone(), provider, event.cwd.clone())
             });
 
-        // Record the active window ID when event arrived
+        // Record window ID only:
+        // 1. On SessionStart (first event for this session), OR
+        // 2. On UserPromptSubmit (user just typed in the terminal — definitely focused)
+        // This avoids overwriting with the AgentPulse window when async events fire
         if let Some(wid) = active_window_id {
-            session.window_id = Some(wid);
+            let should_update = matches!(
+                event.hook_event_name.as_str(),
+                "SessionStart" | "UserPromptSubmit"
+            ) || session.window_id.is_none();
+            if should_update {
+                session.window_id = Some(wid);
+            }
         }
 
         let was_working = session.state == SessionState::Working;
