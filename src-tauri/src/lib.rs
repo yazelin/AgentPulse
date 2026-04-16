@@ -84,15 +84,42 @@ fn get_server_port(port_state: tauri::State<ServerPort>) -> u16 {
 
 #[tauri::command]
 fn focus_session_window(project_name: String, cwd: Option<String>) {
+    // Terminal window class names to filter by
+    let terminal_classes = [
+        "gnome-terminal", "tilix", "terminator", "xterm", "konsole",
+        "alacritty", "kitty", "wezterm", "foot", "st", "urxvt",
+        "xfce4-terminal", "mate-terminal", "lxterminal",
+    ];
+
     let searches = vec![project_name, cwd.unwrap_or_default()];
     for term in &searches {
         if term.is_empty() { continue; }
+
+        // First try: search terminal windows only
+        for cls in &terminal_classes {
+            if let Ok(output) = std::process::Command::new("xdotool")
+                .args(["search", "--class", cls, "--name", term])
+                .output()
+            {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                if let Some(line) = stdout.lines().next() {
+                    if let Ok(wid) = line.trim().parse::<u64>() {
+                        let _ = std::process::Command::new("xdotool")
+                            .args(["windowactivate", &wid.to_string()])
+                            .spawn();
+                        return;
+                    }
+                }
+            }
+        }
+
+        // Fallback: any window with matching name
         if let Ok(output) = std::process::Command::new("xdotool")
             .args(["search", "--name", term])
             .output()
         {
             let stdout = String::from_utf8_lossy(&output.stdout);
-            for line in stdout.lines() {
+            if let Some(line) = stdout.lines().next() {
                 if let Ok(wid) = line.trim().parse::<u64>() {
                     let _ = std::process::Command::new("xdotool")
                         .args(["windowactivate", &wid.to_string()])

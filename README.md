@@ -30,6 +30,42 @@ A cross-platform desktop app that brings **Dynamic Island-inspired** real-time m
 
 All events are normalized to PascalCase internally. Each provider's hook command sends JSON via `curl` to `http://localhost:{port}/hook/{provider}`.
 
+### Session State Machine
+
+```
+SessionStart ──▶ Idle
+                  │
+    UserPromptSubmit / PreToolUse / PostToolUse
+                  │
+                  ▼
+               Working ──Stop──▶ Idle (+ sound if enabled)
+                  │
+          PermissionRequest
+                  │
+                  ▼
+           WaitingForUser ──PreToolUse──▶ Working
+```
+
+**Timeout-based transitions** (checked every 10 seconds):
+
+| Condition | Action |
+|-----------|--------|
+| Active session, 30 sec no events | → Idle |
+| Any session, 10 min no events | → Stale |
+| Any session, 30 min no events | Removed from list |
+| `SessionEnd` event received | Removed immediately |
+
+**Hook → State mapping:**
+
+| Hook Event | State Change |
+|------------|-------------|
+| `SessionStart` | → Idle (new session created) |
+| `UserPromptSubmit` | → Working |
+| `PreToolUse` / `PostToolUse` / `PostToolUseFailure` | → Working |
+| `PermissionRequest` | → WaitingForUser |
+| `Stop` | → Idle (triggers completion sound if was Working) |
+| `SessionEnd` | Session removed from list |
+
 ## Features
 
 - **Dynamic Island Style** — A compact capsule UI floats above your screen, expanding on hover
