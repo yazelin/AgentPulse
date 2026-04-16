@@ -338,6 +338,10 @@ async function renderProviderSounds() {
       e.stopPropagation();
       // Close all other dropdowns
       container.querySelectorAll(".dropdown-options").forEach(o => o !== options && o.classList.add("hidden"));
+      // Decide direction: open up if not enough space below
+      const rect = selected.getBoundingClientRect();
+      const spaceBelow = window.innerHeight - rect.bottom;
+      options.classList.toggle("up", spaceBelow < 180);
       // Rescan sounds folder before opening
       if (options.classList.contains("hidden")) {
         const freshSounds = await invoke("list_sounds");
@@ -410,8 +414,12 @@ async function refreshState() {
     const st = await invoke("get_state");
     lastState = st;
 
-    // Build a structure key that ignores formatted_time
-    const structureKey = JSON.stringify(st.sessions.map(s => s.id + s.state + s.provider + (s.last_prompt || "") + (s.cwd || "")));
+    // Build a structure key that ignores formatted_time but includes active session
+    const activeId = st.active_session?.id || "";
+    const structureKey = JSON.stringify({
+      active: activeId,
+      sessions: st.sessions.map(s => s.id + s.state + s.provider + (s.last_prompt || "") + (s.cwd || ""))
+    });
 
     if (structureKey !== lastStructureJson) {
       // Sessions changed — full re-render

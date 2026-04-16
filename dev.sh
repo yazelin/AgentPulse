@@ -12,17 +12,20 @@ cd "$(dirname "$0")"
 MODE="${1:-debug}"
 
 echo "→ Killing any running instance..."
-pkill -9 -f "claude-pulse" 2>/dev/null || true
+pkill -9 -f "agent-pulse" 2>/dev/null || true
 sleep 1
 
 if [ "$MODE" = "release" ]; then
-  echo "→ Building release binary..."
-  cargo build --release --manifest-path src-tauri/Cargo.toml
-  BIN="src-tauri/target/release/claude-pulse"
+  echo "→ Building release binary (cargo tauri build)..."
+  # IMPORTANT: must use `cargo tauri build`, NOT `cargo build --release`.
+  # Plain cargo build skips frontend embedding, so the webview falls back to
+  # devUrl (localhost:1420) and shows "Could not connect to localhost".
+  cargo tauri build --no-bundle
+  BIN="src-tauri/target/release/agent-pulse"
 else
   echo "→ Building debug binary..."
   cargo build --manifest-path src-tauri/Cargo.toml
-  BIN="src-tauri/target/debug/claude-pulse"
+  BIN="src-tauri/target/debug/agent-pulse"
 fi
 
 echo "→ Launching $BIN..."

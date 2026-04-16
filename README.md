@@ -164,14 +164,14 @@ chmod +x AgentPulse_0.1.0_amd64.AppImage
 
 ```bash
 sudo dpkg -i AgentPulse_0.1.0_amd64.deb
-claude-pulse  # binary name (will be renamed to agent-pulse in future release)
+agent-pulse
 ```
 
 ### Linux — .rpm (Fedora / RHEL)
 
 ```bash
 sudo rpm -i AgentPulse-0.1.0-1.x86_64.rpm
-claude-pulse
+agent-pulse
 ```
 
 ### Windows / macOS
@@ -201,7 +201,7 @@ cargo tauri build
 
 Output:
 ```
-src-tauri/target/release/claude-pulse              # binary
+src-tauri/target/release/agent-pulse               # binary
 src-tauri/target/release/bundle/deb/               # .deb
 src-tauri/target/release/bundle/rpm/               # .rpm
 src-tauri/target/release/bundle/appimage/          # .AppImage

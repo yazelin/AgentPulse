@@ -1,7 +1,7 @@
 [package]
-name = "claude-pulse"
+name = "agent-pulse"
 version = "0.1.0"
-description = "Cross-platform Dynamic Island monitor for Claude Code sessions"
+description = "Cross-platform Dynamic Island monitor for AI coding assistant sessions"
 authors = ["yazelin"]
 license = "MIT"
 edition = "2021"

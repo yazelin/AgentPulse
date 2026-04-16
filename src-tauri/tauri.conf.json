@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "ClaudePulse",
+  "productName": "AgentPulse",
   "version": "0.1.0",
-  "identifier": "com.claudepulse.desktop",
+  "identifier": "com.agentpulse.desktop",
   "build": {
     "frontendDist": "../src",
     "devUrl": "http://localhost:1420",
@@ -12,7 +12,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "ClaudePulse",
+        "title": "AgentPulse",
         "width": 300,
         "height": 46,
         "resizable": false,
@@ -28,9 +28,9 @@
       "csp": "default-src 'self' http://localhost:1420; style-src 'self' http://localhost:1420 'unsafe-inline'; script-src 'self' http://localhost:1420 'unsafe-inline' 'unsafe-eval'; media-src 'self' blob: data: http://localhost:1420"
     },
     "trayIcon": {
-      "iconPath": "icons/32x32.png",
-      "iconAsTemplate": true,
-      "tooltip": "ClaudePulse"
+      "iconPath": "icons/128x128.png",
+      "iconAsTemplate": false,
+      "tooltip": "AgentPulse"
     }
   },
   "bundle": {

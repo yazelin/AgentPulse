@@ -265,13 +265,23 @@ html, body {
 .size-btn:hover { background: var(--btn-bg); color: var(--text-secondary); }
 .size-btn.active { background: var(--btn-bg-hover); color: var(--text); }
 
-.color-picker { display: flex; gap: 10px; }
+.color-picker { display: flex; gap: 12px; padding: 4px 0; }
 .color-dot {
-  width: 24px; height: 24px; border-radius: 50%;
-  border: 2.5px solid transparent; cursor: pointer;
+  width: 22px; height: 22px; border-radius: 50%;
+  border: none; padding: 0;
+  background: var(--dot);
+  cursor: pointer;
+  box-shadow: 0 0 0 0 transparent;
 }
-.color-dot:hover { border-color: var(--text-secondary); }
-.color-dot.active { border-color: #fff; }
+.color-dot:hover {
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px color-mix(in srgb, var(--dot) 60%, black);
+}
+.color-dot.active {
+  box-shadow:
+    0 0 0 2px var(--bg),
+    0 0 0 4px var(--dot),
+    0 0 8px 4px color-mix(in srgb, var(--dot) 50%, transparent);
+}
 
 .toggle { position: relative; display: inline-block; width: 38px; height: 22px; flex-shrink: 0; }
 .toggle input { opacity: 0; width: 0; height: 0; }
@@ -300,9 +310,14 @@ html, body {
   content: "▾"; font-size: 10px; color: var(--text-dim); margin-left: 6px;
 }
 .dropdown-options {
-  position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+  position: absolute; left: 0; right: 0;
+  top: calc(100% + 4px);
   background: var(--bg); border: 0.5px solid var(--border);
   border-radius: 8px; overflow: hidden; z-index: 10;
+  max-height: 180px; overflow-y: auto;
+}
+.dropdown-options.up {
+  top: auto; bottom: calc(100% + 4px);
 }
 .dropdown-option {
   padding: 7px 12px; font-size: 11px; cursor: pointer;
