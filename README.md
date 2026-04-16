@@ -7,12 +7,14 @@ A cross-platform desktop app that brings **Dynamic Island-inspired** real-time m
 
 ## Supported AI Coding Assistants
 
-| Provider | Icon Source | Hook Events | Config Location |
-|----------|-----------|-------------|-----------------|
-| **Claude Code** | [@lobehub/icons](https://github.com/lobehub/lobe-icons) | 8 events | `~/.claude/settings.json` |
-| **Gemini CLI** | @lobehub/icons | 9 events | `~/.gemini/settings.json` |
-| **Codex CLI** (OpenAI) | @lobehub/icons | 5 events | `~/.codex/hooks.json` + `config.toml` |
-| **GitHub Copilot CLI** | @lobehub/icons | 6 events | `~/.copilot/config.json` |
+| Provider | Hook Events | Config Location |
+|----------|-------------|-----------------|
+| **Claude Code** | 8 events | `~/.claude/settings.json` |
+| **Gemini CLI** | 9 events | `~/.gemini/settings.json` |
+| **Codex CLI** (OpenAI) | 5 events | `~/.codex/hooks.json` + `config.toml` |
+| **GitHub Copilot CLI** | 6 events | `~/.copilot/config.json` |
+
+Provider icons from [@lobehub/icons](https://github.com/lobehub/lobe-icons).
 
 ### Hook Events per Provider
 
@@ -28,11 +30,11 @@ A cross-platform desktop app that brings **Dynamic Island-inspired** real-time m
 | PostToolUseFailure | `PostToolUseFailure` | — | — | — |
 | Notification | — | `Notification` | — | `errorOccurred` |
 
-All events are normalized to PascalCase internally. Each provider's hook command sends JSON via `curl` to `http://localhost:{port}/hook/{provider}`.
+All events normalized to PascalCase internally. Each provider's hook command sends JSON via `curl` to `http://localhost:{port}/hook/{provider}`.
 
 ### Field Name Normalization
 
-Different CLIs use different JSON field names. AgentPulse auto-detects and normalizes them:
+Different CLIs use different JSON field names. AgentPulse auto-detects and normalizes:
 
 | Internal Field | Accepted Aliases |
 |---------------|-----------------|
@@ -42,7 +44,7 @@ Different CLIs use different JSON field names. AgentPulse auto-detects and norma
 | `prompt` | `prompt`, `initialPrompt`, `input`, `message`, `userPrompt` |
 | `tool_name` | `tool_name`, `toolName` |
 
-If `session_id` is missing, a default ID is generated as `{provider}-default`.
+If `session_id` is missing, default ID generated as `{provider}-default`.
 
 ### Session State Machine
 
@@ -81,42 +83,68 @@ SessionStart ──▶ Idle
 | `Stop` | → Idle (triggers completion sound if was Working) |
 | `SessionEnd` | Session removed from list |
 
-**Status indicator colors** (fixed, not affected by accent color):
+**Status indicator colors** (fixed, not accent-dependent):
 
-| State | Dot Color | Label Color |
-|-------|-----------|-------------|
-| Working | Green (`#4ade80`) | Green |
-| Waiting | Orange (`#ffb340`) | Orange |
-| Idle | Gray (25% white) | — |
-| Stale | Dim gray (10% white) | Gray |
+| State | Dot | Label Color |
+|-------|-----|-------------|
+| Working | 🟢 Green (`#4ade80`) | Green |
+| Waiting | 🟠 Orange (`#ffb340`) | Orange |
+| Idle | ⚪ Gray | — |
+| Stale | 🔘 Dim gray | Gray |
+
+## Sound System
+
+External MP3/WAV/OGG files in `~/.config/agentpulse/sounds/`. Each provider can have its own completion sound.
+
+### Setup
+
+1. Open Settings → enable **Sound on Complete**
+2. **Per-Provider Sounds** section shows one dropdown per provider
+3. Click 📁 to open the sounds folder
+4. Drop your MP3/WAV/OGG files there
+5. Files appear in the dropdowns
+6. Click ▶ next to each provider to preview
+
+### Auto-matching
+
+If a sound file starts with the provider ID (e.g., `claude.mp3`, `gemini.wav`), AgentPulse auto-assigns it on first launch.
+
+### Generate TTS sounds (optional)
+
+Generate Chinese voice notifications using [edge-tts](https://github.com/rany2/edge-tts):
+
+```bash
+pip install edge-tts
+mkdir -p ~/.config/agentpulse/sounds
+
+for p in claude gemini copilot codex; do
+  edge-tts --voice "zh-TW-HsiaoChenNeural" \
+           --text "${p}任務完成" \
+           --write-media ~/.config/agentpulse/sounds/${p}.mp3
+done
+```
+
+Audio playback uses [`rodio`](https://github.com/RustAudio/rodio) (Rust-side, no browser CSP issues).
 
 ## Features
 
-- **Dynamic Island Style** — A compact capsule UI floats above your screen, expanding on hover
-- **Multi-Provider** — Monitor Claude, Gemini, Codex, and Copilot sessions simultaneously
-- **Provider Icons** — Each session shows its provider's official icon (via [@lobehub/icons](https://github.com/lobehub/lobe-icons))
-- **Status Dot** — Inline colored indicator (green/orange/gray) next to project name
-- **Real-time Tracking** — Working, Waiting, Idle, Stale states with live timer
-- **3-Line Session Info** — Project name + status, working directory (`~/path`), last prompt (italic)
-- **Click to Focus** — Click a session to bring its terminal window to foreground (searches terminal emulator windows first)
-- **Remove Session** — X button appears on hover, turns red on hover, click to remove
-- **Smart Re-render** — Session list only re-renders on structural changes; timers update in-place preserving hover state
-- **Bounce Animation** — Satisfying bounce effect when panel collapses
-- **Draggable** — Drag the capsule anywhere on screen
-- **System Tray** — Show/hide panel and quit from tray
-- **Settings** — Providers, accent color (5), text size (S/M/L), sound on complete (5 sounds), pin expanded
+- **Dynamic Island Style** — Floating capsule expands on hover
+- **Multi-Provider** — Claude, Gemini, Codex, Copilot simultaneously
+- **Provider Icons** — Each session shows provider's official icon
+- **Status Dot** — Inline colored indicator (green/orange/gray)
+- **3-Line Session Info** — Project name + status, working directory, last prompt (italic)
+- **Click to Focus** — Brings session's terminal window to foreground via stored window ID
+- **Remove Session** — X button on hover, red on hover, click to remove
+- **Smart Re-render** — Timer updates in-place, only structural changes trigger full re-render (preserves hover state)
+- **Per-Provider Sounds** — Each CLI plays its own sound on completion
+- **Bounce Animation** — Window bounces when collapsing
+- **Draggable** — Drag capsule anywhere
+- **System Tray** — Show/hide and quit
+- **Settings** — Providers, accent color (5), text size (S/M/L), per-provider sounds, pin expanded
 - **Config File** — All settings in `~/.config/agentpulse/config.json` (zero localStorage)
-- **Auto-Detection** — First launch detects installed CLIs via `which` and config directory presence
+- **Auto-Detection** — First launch detects installed CLIs via `which`
+- **Open Settings File** — Button per provider opens its config file in default editor
 - **Cross-Platform** — Linux, Windows, macOS (Tauri v2)
-
-## Session States
-
-| State | Dot | Description |
-|-------|-----|-------------|
-| **Working** | 🟢 | AI is processing |
-| **Waiting** | 🟠 | Waiting for user input or approval |
-| **Idle** | ⚪ | Session is idle |
-| **Stale** | 🔘 | No activity for 10+ minutes (removed after 30 min) |
 
 ## Install
 
@@ -131,7 +159,7 @@ chmod +x AgentPulse_0.1.0_amd64.AppImage
 
 ```bash
 sudo dpkg -i AgentPulse_0.1.0_amd64.deb
-claude-pulse  # binary name (will be renamed to agent-pulse in future release)
+claude-pulse  # binary name
 ```
 
 ### Linux — .rpm (Fedora / RHEL)
@@ -154,8 +182,9 @@ Download from [Releases](../../releases/latest).
 - [Tauri CLI](https://v2.tauri.app/start/prerequisites/): `cargo install tauri-cli`
 - **Linux** dependencies:
   ```bash
-  sudo apt install libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
+  sudo apt install libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libasound2-dev
   ```
+  (`libasound2-dev` needed by rodio for audio)
 
 ### Build
 
@@ -170,16 +199,25 @@ Output:
 src-tauri/target/release/claude-pulse              # binary
 src-tauri/target/release/bundle/deb/               # .deb
 src-tauri/target/release/bundle/rpm/               # .rpm
-src-tauri/target/release/bundle/appimage/           # .AppImage
+src-tauri/target/release/bundle/appimage/          # .AppImage
 ```
 
-### Development
+### Development Workflow
 
+Use the included scripts for fast iteration:
+
+```bash
+./dev.sh           # debug build + run (fast compile)
+./dev.sh release   # release build + run (slower compile, faster runtime)
+./reload.sh        # restart without rebuilding (frontend changes only)
+```
+
+For full Tauri dev mode (auto-reload):
 ```bash
 cargo tauri dev
 ```
 
-Frontend is static HTML/CSS/JS — no bundler needed. Changes to `src/` take effect on restart.
+Frontend is static HTML/CSS/JS — no bundler needed. Frontend changes require restart only (no rebuild).
 
 ## Usage
 
@@ -188,7 +226,8 @@ Frontend is static HTML/CSS/JS — no bundler needed. Changes to `src/` take eff
 1. AgentPulse opens with Settings showing detected providers
 2. Check the providers you want to monitor (Claude, Gemini, Codex, Copilot)
 3. Hooks are automatically installed into each provider's config file
-4. Close settings — the capsule is ready
+4. (Optional) Open sounds folder, add MP3 files, set per-provider sounds
+5. Close settings — the capsule is ready
 
 ### Controls
 
@@ -209,9 +248,11 @@ Frontend is static HTML/CSS/JS — no bundler needed. Changes to `src/` take eff
 
 | Setting | Options |
 |---------|---------|
-| **Providers** | Enable/disable each CLI with checkbox; auto-detects installed CLIs |
+| **Providers** | Enable/disable each CLI; install/remove hooks; auto-detected |
+| **Open settings file** | Button per provider opens its config file in editor |
 | **Keep Expanded** | Pin panel open without hovering |
-| **Sound on Complete** | Glass, Ping, Pop, Chime, Bell (Web Audio synthesis) |
+| **Sound on Complete** | Play sound when AI finishes |
+| **Per-Provider Sounds** | Each CLI gets own sound; ▶ to preview; 📁 to add files |
 | **Accent Color** | Purple, Cyan, Green, Orange, Pink |
 | **Size** | S / M / L text scaling |
 
@@ -220,20 +261,43 @@ Frontend is static HTML/CSS/JS — no bundler needed. Changes to `src/` take eff
 ### How It Works
 
 ```
-Claude Code ──curl──▶
-Gemini CLI  ──curl──▶  AgentPulse HTTP Server  ──▶  Capsule UI
-Codex CLI   ──curl──▶  (localhost:19280-19289)      (Tauri window)
-Copilot CLI ──curl──▶
+Claude Code ──curl + X-Window-Id header──▶
+Gemini CLI  ──curl + X-Window-Id header──▶  AgentPulse HTTP Server
+Codex CLI   ──curl + X-Window-Id header──▶  (localhost:19280-19289)
+Copilot CLI ──curl + X-Window-Id header──▶
+                                                    │
+                                                    ▼
+                                          Session Manager
+                                          (state machine, timers)
+                                                    │
+                                                    ▼
+                                          Capsule UI (1s polling)
 ```
 
-1. AgentPulse starts a TCP server on port 19280-19289 (tries each until one is available)
-2. Port is written to `~/.agentpulse/port` for CLI hooks to read
-3. On provider enable, hooks are written to each CLI's config file
-4. Each CLI sends JSON events via `curl` to `/hook/{provider}`
-5. Raw JSON is parsed with field name normalization (handles different CLIs)
-6. Events are normalized to common PascalCase names
-7. Session manager updates state machine
-8. UI polls state every 1 second; smart re-render only on structural changes
+1. AgentPulse starts a TCP server on port 19280-19289
+2. Port written to `~/.agentpulse/port` for CLI hooks
+3. On provider enable, hooks written to each CLI's config file (auto-clean before install)
+4. Each CLI sends JSON events via `curl` with `X-Window-Id` header (terminal window ID via process tree walk)
+5. Server parses URL `/hook/{provider}` to identify provider
+6. Field name normalization handles different CLIs
+7. Event names normalized to PascalCase
+8. Session manager updates state machine
+9. UI polls state every 1 second; smart re-render only on structural changes
+
+### Window ID Capture (Click-to-Focus)
+
+The curl hook walks up the parent process tree to find the terminal window:
+
+```bash
+$(p=$PPID; w=""; while [ "$p" -gt 1 ]; do
+  w=$(xdotool search --pid $p 2>/dev/null | head -1);
+  [ -n "$w" ] && break;
+  p=$(awk '{print $4}' /proc/$p/stat 2>/dev/null);
+  [ -z "$p" ] && break;
+done; echo "$w")
+```
+
+The found window ID is sent as `X-Window-Id` header. Click on session → `xdotool windowactivate <stored_wid>`.
 
 ### Hook Installation Details
 
@@ -241,7 +305,7 @@ Copilot CLI ──curl──▶
 ```json
 {
   "hooks": {
-    "SessionStart": [{ "matcher": "", "hooks": [{ "type": "command", "command": "curl ... /hook/claude", "async": true }] }]
+    "SessionStart": [{ "matcher": "", "hooks": [{ "type": "command", "command": "curl -H 'X-Window-Id: ...' ... /hook/claude", "async": true }] }]
   }
 }
 ```
@@ -264,7 +328,7 @@ Copilot CLI ──curl──▶
 }
 ```
 
-**GitHub Copilot CLI** (`~/.copilot/config.json` — uses `bash` field instead of `command`):
+**GitHub Copilot CLI** (`~/.copilot/config.json` — uses `bash` field):
 ```json
 {
   "hooks": {
@@ -283,8 +347,13 @@ Copilot CLI ──curl──▶
     "accent_color": "purple",
     "text_size": "medium",
     "pin_expanded": false,
-    "sound_enabled": false,
-    "sound_name": "glass"
+    "sound_enabled": true,
+    "provider_sounds": {
+      "claude": "claude.mp3",
+      "gemini": "gemini.mp3",
+      "codex": "codex.mp3",
+      "copilot": "copilot.mp3"
+    }
   },
   "providers": {
     "claude": { "enabled": true, "name": "Claude Code", "settings_path": "~/.claude/settings.json" },
@@ -300,32 +369,35 @@ Copilot CLI ──curl──▶
 | Component | Technology |
 |-----------|-----------|
 | Framework | Tauri v2 |
-| Backend | Rust (tokio, serde, chrono) |
+| Backend | Rust (tokio, serde, chrono, rodio) |
 | Frontend | HTML / CSS / JS (no framework, no bundler) |
 | HTTP Server | tokio TCP (raw HTTP parsing) |
 | Window | WebKitGTK (Linux), WebView2 (Windows), WKWebView (macOS) |
+| Audio | rodio (Rust audio playback) |
 | Icons | [@lobehub/icons](https://github.com/lobehub/lobe-icons) (inline SVG) |
-| Linux extras | `webkit2gtk`, `gtk`, `gdk` crates for window management |
+| Linux extras | `webkit2gtk`, `gtk`, `gdk` crates for window management; `xdotool` for window focus |
 
 ## Project Structure
 
 ```
 AgentPulse/
 ├── src/                           # Frontend
-│   ├── index.html                 # Main HTML (capsule, expanded, settings views)
+│   ├── index.html                 # Capsule, expanded, settings views
 │   ├── styles.css                 # All styles (no CSS transitions for X11 compat)
-│   └── main.js                    # All logic: Tauri IPC, state, UI, provider icons
+│   └── main.js                    # Tauri IPC, state, UI, provider icons, sound playback
 ├── src-tauri/                     # Backend (Rust)
-│   ├── Cargo.toml                 # Dependencies
-│   ├── tauri.conf.json            # Tauri config (window, tray, bundle)
+│   ├── Cargo.toml                 # Dependencies (tauri, rodio, webkit2gtk, etc.)
+│   ├── tauri.conf.json            # Window, tray, bundle config
 │   ├── capabilities/default.json  # Tauri v2 permissions
 │   └── src/
-│       ├── lib.rs                 # App setup, tray, window mgmt, Tauri commands
-│       ├── config.rs              # Config file R/W, provider detection, path expansion
-│       ├── hook_server.rs         # HTTP server, URL-based provider routing, event normalization
+│       ├── lib.rs                 # App setup, tray, window mgmt, all Tauri commands
+│       ├── config.rs              # Config R/W, provider detection, sounds dir
+│       ├── hook_server.rs         # HTTP server, URL routing, X-Window-Id parsing
 │       ├── hook_event.rs          # RawHookEvent (field aliases) → HookEvent (normalized)
-│       ├── session.rs             # Session state machine, SessionManager, AppState
-│       └── hooks_configurator.rs  # Per-provider hook installation (4 different formats)
+│       ├── session.rs             # State machine, SessionManager, AppState
+│       └── hooks_configurator.rs  # Per-provider hook install/remove
+├── dev.sh                         # Quick build + run script
+├── reload.sh                      # Restart without rebuild
 ├── package.json
 ├── README.md
 └── LICENSE
@@ -335,19 +407,22 @@ AgentPulse/
 
 | Issue | Workaround |
 |-------|------------|
-| `rgba()` backgrounds ghost on transparent windows | Use opaque `rgb()` backgrounds; transparent window only for rounded corners |
+| `rgba()` backgrounds ghost on transparent windows | Opaque `rgb()` backgrounds; transparent window only for rounded corners |
 | CSS `-webkit-app-region: drag` doesn't work | Tauri `startDragging()` API via JS `mousedown` |
-| `mouseleave` unreliable on transparent windows | Tauri `cursor-left` event + CSS `:hover` polling fallback |
+| `mouseleave` unreliable on transparent windows | Tauri `cursor-left` event + CSS `:hover` polling |
 | CSS `:hover` pseudo-class unreliable for style changes | JS `mouseenter`/`mouseleave` with inline `style.color` |
 | `<select>` dropdown uses system native styling | Custom div-based dropdown |
 | CSS `transition` / `animation` causes pixel ghosting | All transitions removed; bounce via Rust `set_position` thread |
 | `transform: translateZ(0)` creates black compositing layers | Not used |
-| DOM re-render destroys hover state | Smart re-render: only structural changes trigger full re-render; timers update in-place |
+| DOM re-render destroys hover state | Smart re-render: structural changes only; timers in-place |
+| Browser CSP blocks blob URLs and local files | Audio plays via Rust `rodio` (no browser audio at all) |
 
 ## Credits
 
 - Original [ClaudePulse](https://github.com/tzangms/ClaudePulse) by [@tzangms](https://github.com/tzangms)
 - Provider icons from [@lobehub/icons](https://github.com/lobehub/lobe-icons)
+- Audio playback via [rodio](https://github.com/RustAudio/rodio)
+- TTS sound generation example via [edge-tts](https://github.com/rany2/edge-tts)
 
 ## License
 

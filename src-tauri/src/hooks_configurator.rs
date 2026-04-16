@@ -4,7 +4,7 @@ use serde_json::{json, Value};
 use std::path::PathBuf;
 
 /// Check if a provider's hooks are already configured
-pub fn provider_needs_setup(provider_id: &str, config: &ProviderConfig) -> bool {
+pub fn provider_needs_setup(_provider_id: &str, config: &ProviderConfig) -> bool {
     let path = match &config.settings_path {
         Some(p) => expand_path(p),
         None => return true,

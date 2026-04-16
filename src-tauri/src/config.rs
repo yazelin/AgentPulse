@@ -53,7 +53,6 @@ pub struct ProviderConfig {
 
 fn default_accent() -> String { "purple".into() }
 fn default_text_size() -> String { "medium".into() }
-fn default_sound() -> String { "glass".into() }
 
 fn default_providers() -> HashMap<String, ProviderConfig> {
     let mut m = HashMap::new();
