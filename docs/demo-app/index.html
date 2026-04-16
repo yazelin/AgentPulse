@@ -6,8 +6,19 @@
   <title>AgentPulse</title>
   <link rel="stylesheet" href="app.css" />
   <style>
-    /* Demo-only: iframe body transparent + let app float naturally. */
-    html, body { background: transparent !important; overflow: visible; }
+    /* Demo-only: iframe body transparent + let app float naturally.
+       overflow-y: auto lets the Settings panel scroll inside the iframe
+       if content exceeds the cap the landing page enforces. */
+    html, body {
+      background: transparent !important;
+      overflow-x: hidden;
+      overflow-y: auto;
+    }
+    body::-webkit-scrollbar { width: 6px; }
+    body::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 3px;
+    }
     /* The real app runs inside a 300px-wide Tauri window, and relies on
        that window size for the capsule / expanded panel widths. In the
        iframe we don't have a fixed window width, so pin the width and

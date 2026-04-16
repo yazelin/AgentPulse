@@ -62,11 +62,26 @@ nav .container { display: flex; align-items: center; justify-content: space-betw
 .hero {
   position: relative;
   overflow: hidden;
-  padding: 60px 0 80px;
-  min-height: 760px;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
+  padding: 60px 24px 80px;
+}
+.hero-grid {
+  position: relative;
+  z-index: 1;
+  max-width: 1100px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 1fr 400px;
+  gap: 60px;
+  align-items: start;
+}
+@media (max-width: 920px) {
+  .hero-grid {
+    grid-template-columns: 1fr;
+    gap: 40px;
+    text-align: center;
+  }
+  .hero-text { order: 1; }
+  .live-demo { order: 2; justify-self: center; }
 }
 
 /* Gradient "desktop wallpaper" with soft animated blobs */
@@ -95,38 +110,73 @@ nav .container { display: flex; align-items: center; justify-content: space-betw
 @keyframes blobFloat2 { 0%,100% { transform: translate(0, 0); } 50% { transform: translate(-60px, 40px); } }
 @keyframes blobFloat3 { 0%,100% { transform: translate(0, 0); } 50% { transform: translate(40px, -40px); } }
 
-/* Live demo — iframe sits at the top of the hero, above the text, as if it
-   were floating on a real desktop. Clickable and interactive. */
+/* Live demo column — its height grows with the iframe but never affects
+   the hero-text column because they live in separate grid cells. */
 .live-demo {
   position: relative;
-  z-index: 2;
-  margin: 20px auto 40px;
   width: 100%;
-  max-width: 400px;
   display: flex;
   flex-direction: column;
   align-items: center;
+  padding-top: 40px;  /* leave room for the Live badge perched at top */
+}
+.live-demo-badge {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px 6px 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(217, 128, 255, 0.4);
+  color: var(--text);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 18px rgba(217, 128, 255, 0.25);
+  white-space: nowrap;
+}
+.live-demo-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--found);
+  box-shadow: 0 0 0 0 rgba(77, 242, 153, 0.6);
+  animation: liveDot 1.6s ease-in-out infinite;
+}
+@keyframes liveDot {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(77, 242, 153, 0.6); }
+  70% { box-shadow: 0 0 0 10px rgba(77, 242, 153, 0); }
 }
 .live-demo iframe {
   width: 100%;
   height: 560px;
   border: 0;
   background: transparent;
-  /* Subtle spotlight behind the floating capsule */
   filter: drop-shadow(0 20px 40px rgba(0, 0, 0, 0.4))
           drop-shadow(0 0 60px rgba(217, 128, 255, 0.25));
+  transition: height 0.2s ease;
 }
 .live-demo-hint {
-  margin-top: -10px;
+  margin-top: 12px;
   color: var(--text-dim);
   font-size: 13px;
   letter-spacing: 0.3px;
+  text-align: center;
 }
 
 .hero-text {
   position: relative;
   z-index: 1;
-  text-align: center;
+  text-align: left;
+}
+@media (max-width: 920px) {
+  .hero-text { text-align: center; }
 }
 .hero h1 {
   font-size: clamp(40px, 6vw, 68px);
@@ -154,15 +204,20 @@ nav .container { display: flex; align-items: center; justify-content: space-betw
 .hero p.lede {
   font-size: clamp(17px, 1.8vw, 21px);
   color: rgba(255, 255, 255, 0.85);
-  max-width: 640px;
-  margin: 0 auto 36px;
+  max-width: 560px;
+  margin-bottom: 36px;
   text-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+}
+@media (max-width: 920px) {
+  .hero p.lede { margin-left: auto; margin-right: auto; }
 }
 .cta {
   display: flex;
   gap: 12px;
-  justify-content: center;
   flex-wrap: wrap;
+}
+@media (max-width: 920px) {
+  .cta { justify-content: center; }
 }
 .btn {
   display: inline-flex;

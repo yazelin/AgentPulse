@@ -34,22 +34,46 @@
       <div class="blob b3"></div>
     </div>
 
-    <!-- Live, interactive AgentPulse running in an iframe. Hover the capsule,
-         click the gear, everything's real. Auto-cycles through session states
-         so there's something to see even before you interact. -->
-    <div class="live-demo" aria-label="Interactive AgentPulse demo">
-      <iframe id="demo-iframe" src="demo-app/" title="AgentPulse interactive demo" loading="eager" scrolling="no"></iframe>
-      <div class="live-demo-hint">↑ hover the capsule · click ⚙ for settings</div>
+    <div class="hero-grid">
+      <div class="hero-text">
+        <div class="tag">v0.2 — now cross-platform</div>
+        <h1>Pulse for every<br/>AI coding assistant</h1>
+        <p class="lede">
+          A floating Dynamic Island-style monitor that tracks your Claude Code, Gemini CLI,
+          Codex, and GitHub Copilot sessions in real time — across Linux, macOS, and Windows.
+        </p>
+        <div class="cta">
+          <a href="https://github.com/yazelin/AgentPulse/releases/latest" target="_blank" rel="noopener" class="btn btn-primary">
+            ↓ Download latest
+          </a>
+          <a href="https://github.com/yazelin/AgentPulse" target="_blank" rel="noopener" class="btn btn-secondary">
+            View on GitHub
+          </a>
+        </div>
+      </div>
+
+      <!-- Live, interactive AgentPulse running in an iframe. Hover the capsule,
+           click the gear, everything's real. Auto-cycles through session states
+           so there's something to see even before you interact. -->
+      <div class="live-demo" aria-label="Interactive AgentPulse demo">
+        <div class="live-demo-badge">
+          <span class="live-demo-dot"></span>
+          Live — try me
+        </div>
+        <iframe id="demo-iframe" src="demo-app/" title="AgentPulse interactive demo" loading="eager" scrolling="no"></iframe>
+        <div class="live-demo-hint">Hover the capsule · click ⚙ for settings</div>
+      </div>
     </div>
 
     <!-- Auto-size the iframe to its content (same-origin, so we can read
          contentDocument). Keeps the Settings tab from being clipped when
-         the Sounds panel expands. -->
+         the Sounds panel expands — and because the demo lives in its own
+         grid column, growing the iframe no longer pushes the hero text. -->
     <script>
       (function () {
         var iframe = document.getElementById("demo-iframe");
         if (!iframe) return;
-        var MIN_H = 380, MAX_H = 920;
+        var MIN_H = 380, MAX_H = 640;
         function resize() {
           try {
             var doc = iframe.contentDocument;
@@ -73,23 +97,6 @@
         });
       })();
     </script>
-
-    <div class="container hero-text">
-      <div class="tag">v0.2 — now cross-platform</div>
-      <h1>Pulse for every<br/>AI coding assistant</h1>
-      <p class="lede">
-        A floating Dynamic Island-style monitor that tracks your Claude Code, Gemini CLI,
-        Codex, and GitHub Copilot sessions in real time — across Linux, macOS, and Windows.
-      </p>
-      <div class="cta">
-        <a href="https://github.com/yazelin/AgentPulse/releases/latest" target="_blank" rel="noopener" class="btn btn-primary">
-          ↓ Download latest
-        </a>
-        <a href="https://github.com/yazelin/AgentPulse" target="_blank" rel="noopener" class="btn btn-secondary">
-          View on GitHub
-        </a>
-      </div>
-    </div>
   </header>
 
   <section class="providers">
