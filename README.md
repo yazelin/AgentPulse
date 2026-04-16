@@ -1,32 +1,59 @@
 # AgentPulse
 
-A cross-platform desktop app that brings **Dynamic Island-inspired** real-time monitoring to your AI coding assistant sessions (Claude Code, Gemini CLI, GitHub Copilot CLI, Codex CLI).
+A cross-platform desktop app that brings **Dynamic Island-inspired** real-time monitoring to your AI coding assistant sessions.
 
 > Inspired by [ClaudePulse](https://github.com/tzangms/ClaudePulse) by [@tzangms](https://github.com/tzangms) — a beautiful macOS-native app built with Swift/SwiftUI.
-> AgentPulse is a cross-platform rewrite using [Tauri v2](https://tauri.app/) to support **Linux**, **Windows**, and **macOS**, with planned support for multiple AI coding assistants.
+> AgentPulse is a cross-platform rewrite using [Tauri v2](https://tauri.app/) to support **Linux**, **Windows**, and **macOS**, extended with multi-provider support.
+
+## Supported AI Coding Assistants
+
+| Provider | Icon Source | Hook Events | Config Location |
+|----------|-----------|-------------|-----------------|
+| **Claude Code** | [@lobehub/icons](https://github.com/lobehub/lobe-icons) | 8 events | `~/.claude/settings.json` |
+| **Gemini CLI** | @lobehub/icons | 9 events | `~/.gemini/settings.json` |
+| **Codex CLI** (OpenAI) | @lobehub/icons | 5 events | `~/.codex/hooks.json` + `config.toml` |
+| **GitHub Copilot CLI** | @lobehub/icons | 6 events | `~/.copilot/config.json` |
+
+### Hook Events per Provider
+
+| Event (normalized) | Claude | Gemini | Codex | Copilot |
+|---------------------|--------|--------|-------|---------|
+| SessionStart | `SessionStart` | `BeforeAgent` | `SessionStart` | `sessionStart` |
+| SessionEnd | `SessionEnd` | `AfterAgent` | — | `sessionEnd` |
+| UserPromptSubmit | `UserPromptSubmit` | `BeforeModel` | `UserPromptSubmit` | `userPromptSubmitted` |
+| PreToolUse | `PreToolUse` | `BeforeTool` | `PreToolUse` | `preToolUse` |
+| PostToolUse | `PostToolUse` | `AfterTool` | `PostToolUse` | `postToolUse` |
+| Stop | `Stop` | `AfterModel` | `Stop` | `agentStop` |
+| PermissionRequest | `PermissionRequest` | — | — | — |
+| PostToolUseFailure | `PostToolUseFailure` | — | — | — |
+| Notification | — | `Notification` | — | `errorOccurred` |
+
+All events are normalized to PascalCase internally. Each provider's hook command sends JSON via `curl` to `http://localhost:{port}/hook/{provider}`.
 
 ## Features
 
-- **Dynamic Island Style** — A compact capsule UI floats above your screen, expanding on hover to show full session details
-- **Real-time Session Tracking** — Monitor multiple sessions simultaneously with working, waiting, or idle status
-- **Multi-session View** — Expanded panel shows project name, working directory, and last prompt for each session
-- **Click to Focus** — Click a session to bring its terminal window to the foreground
-- **System Tray** — Show/hide panel and quit from the system tray
+- **Dynamic Island Style** — A compact capsule UI floats above your screen, expanding on hover
+- **Multi-Provider** — Monitor Claude, Gemini, Codex, and Copilot sessions simultaneously
+- **Provider Icons** — Each session shows its provider's official icon (via [@lobehub/icons](https://github.com/lobehub/lobe-icons))
+- **Real-time Tracking** — Working, Waiting, Idle, Stale states with live timer
+- **3-Line Session Info** — Project name, working directory (`~/path`), and last prompt (italic)
+- **Click to Focus** — Click a session to bring its terminal window to foreground (Linux: `xdotool`)
+- **Bounce Animation** — Satisfying bounce effect when panel collapses
 - **Draggable** — Drag the capsule anywhere on screen
-- **Bounce Animation** — Satisfying bounce effect when the panel collapses
-- **Customizable** — Accent color (5 colors), text size (S/M/L), sound notifications, pin expanded
-- **Fully Local** — All data stays on localhost via hooks. Nothing leaves your machine
-- **Zero Configuration** — Automatically sets up hooks on first launch
-- **Cross-Platform** — Linux, Windows, macOS
+- **System Tray** — Show/hide panel and quit from tray
+- **Settings** — Accent color (5), text size (S/M/L), sound on complete (5 sounds), pin expanded
+- **Config File** — All settings in `~/.config/agentpulse/config.json` (no localStorage)
+- **Zero Config Start** — First launch opens settings with auto-detected providers
+- **Cross-Platform** — Linux, Windows, macOS (Tauri v2)
 
 ## Session States
 
 | State | Description |
 |-------|-------------|
-| **Working** | AI is processing |
-| **Waiting** | Waiting for user input or approval |
-| **Idle** | Session is idle |
-| **Stale** | No activity for over 10 minutes |
+| **Working** | AI is processing (purple/accent icon) |
+| **Waiting** | Waiting for user input or approval (orange icon) |
+| **Idle** | Session is idle (gray icon) |
+| **Stale** | No activity for 10+ minutes (dim icon, removed after 30 min) |
 
 ## Install
 
@@ -41,19 +68,19 @@ chmod +x AgentPulse_0.1.0_amd64.AppImage
 
 ```bash
 sudo dpkg -i AgentPulse_0.1.0_amd64.deb
-agent-pulse
+claude-pulse  # binary name
 ```
 
 ### Linux — .rpm (Fedora / RHEL)
 
 ```bash
 sudo rpm -i AgentPulse-0.1.0-1.x86_64.rpm
-agent-pulse
+claude-pulse
 ```
 
 ### Windows / macOS
 
-Download the installer from [Releases](../../releases/latest).
+Download from [Releases](../../releases/latest).
 
 ## Build from Source
 
@@ -61,13 +88,9 @@ Download the installer from [Releases](../../releases/latest).
 
 - [Rust](https://rustup.rs/) 1.77+
 - [Node.js](https://nodejs.org/) 18+
-- [Tauri CLI](https://v2.tauri.app/start/prerequisites/)
+- [Tauri CLI](https://v2.tauri.app/start/prerequisites/): `cargo install tauri-cli`
+- **Linux** dependencies:
   ```bash
-  cargo install tauri-cli
-  ```
-- **Linux** additional dependencies:
-  ```bash
-  # Ubuntu / Debian
   sudo apt install libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev
   ```
 
@@ -79,13 +102,12 @@ cd AgentPulse
 cargo tauri build
 ```
 
-Output binaries:
-
+Output:
 ```
-src-tauri/target/release/claude-pulse          # binary
-src-tauri/target/release/bundle/deb/           # .deb package
-src-tauri/target/release/bundle/rpm/           # .rpm package
-src-tauri/target/release/bundle/appimage/      # .AppImage
+src-tauri/target/release/claude-pulse              # binary
+src-tauri/target/release/bundle/deb/               # .deb
+src-tauri/target/release/bundle/rpm/               # .rpm
+src-tauri/target/release/bundle/appimage/           # .AppImage
 ```
 
 ### Development
@@ -94,133 +116,168 @@ src-tauri/target/release/bundle/appimage/      # .AppImage
 cargo tauri dev
 ```
 
-Since the frontend is static HTML/CSS/JS (no bundler), changes to `src/` files take effect on app restart.
+Frontend is static HTML/CSS/JS — no bundler needed. Changes to `src/` take effect on restart.
 
 ## Usage
 
 ### First Launch
 
-1. AgentPulse appears as a floating capsule at the top of your screen
-2. A prompt asks to configure Claude Code hooks — click **Configure** to auto-setup `~/.claude/settings.json`
-3. Start using Claude Code — the capsule updates in real-time
+1. AgentPulse opens with Settings showing detected providers
+2. Check the providers you want to monitor (Claude, Gemini, Codex, Copilot)
+3. Hooks are automatically installed into each provider's config file
+4. Close settings — the capsule is ready
 
 ### Controls
 
 | Action | Effect |
 |--------|--------|
-| **Hover** capsule | Expand to show all sessions |
-| **Move mouse away** | Collapse back to capsule |
-| **Drag** capsule | Reposition anywhere on screen |
-| **Click** a session | Focus its terminal window |
-| **Pin** button | Keep panel expanded without hovering |
+| **Hover** capsule | Expand session list |
+| **Move away** | Collapse (with bounce) |
+| **Drag** capsule | Reposition anywhere |
+| **Click** session | Focus its terminal window |
+| **Pin** button | Keep panel expanded |
 | **Gear** button | Open settings |
-| **System tray** → Show/Hide | Toggle visibility |
-| **System tray** → Quit | Exit AgentPulse |
+| **Tray** → Show/Hide | Toggle visibility |
+| **Tray** → Quit | Exit |
 
 ### Settings
 
-- **Keep Expanded** — Pin the panel open without hovering
-- **Sound on Complete** — Play a notification sound when AI finishes working (Glass, Ping, Pop, Chime, Bell)
-- **Accent Color** — Purple, Cyan, Green, Orange, Pink
-- **Size** — S / M / L text scaling
+| Setting | Options |
+|---------|---------|
+| **Providers** | Enable/disable each CLI with checkbox |
+| **Keep Expanded** | Pin panel open without hovering |
+| **Sound on Complete** | Glass, Ping, Pop, Chime, Bell |
+| **Accent Color** | Purple, Cyan, Green, Orange, Pink |
+| **Size** | S / M / L text scaling |
 
-## How It Works
+## Architecture
+
+### How It Works
 
 ```
-Claude Code  ──curl──▶  AgentPulse HTTP Server  ──▶  Capsule UI
-(hooks)                 (localhost:19280)              (Tauri window)
+Claude Code ──curl──▶
+Gemini CLI  ──curl──▶  AgentPulse HTTP Server  ──▶  Capsule UI
+Codex CLI   ──curl──▶  (localhost:19280)            (Tauri window)
+Copilot CLI ──curl──▶
 ```
 
-1. AgentPulse starts a local HTTP server on port 19280-19289
-2. On first launch, it configures hooks in `~/.claude/settings.json`
-3. Claude Code sends events via `curl` on each action (session start, prompt submit, tool use, permission request, stop)
-4. The capsule UI updates in real-time
+1. AgentPulse starts a TCP server on port 19280-19289
+2. On provider enable, hooks are written to each CLI's config file
+3. Each CLI sends events via `curl` to `/hook/{provider}` (e.g., `/hook/claude`, `/hook/gemini`)
+4. Events are normalized to common names and routed to the session manager
+5. UI updates in real-time via 1-second polling
 
-### Hook Events
+### Hook Installation Details
 
-| Event | Triggers |
-|-------|----------|
-| `SessionStart` | New Claude Code session begins |
-| `SessionEnd` | Session closes |
-| `UserPromptSubmit` | User sends a prompt |
-| `PreToolUse` / `PostToolUse` | Tool execution |
-| `PermissionRequest` | Waiting for user approval |
-| `Stop` | AI finishes working |
+**Claude Code** (`~/.claude/settings.json`):
+```json
+{
+  "hooks": {
+    "SessionStart": [{ "matcher": "", "hooks": [{ "type": "command", "command": "curl ... /hook/claude", "async": true }] }]
+  }
+}
+```
+
+**Gemini CLI** (`~/.gemini/settings.json`):
+```json
+{
+  "hooks": {
+    "BeforeAgent": [{ "matcher": "", "hooks": [{ "type": "command", "command": "curl ... /hook/gemini", "async": true }] }]
+  }
+}
+```
+
+**Codex CLI** (`~/.codex/hooks.json` + enables `codex_hooks` feature in `config.toml`):
+```json
+{
+  "hooks": {
+    "SessionStart": [{ "hooks": [{ "type": "command", "command": "curl ... /hook/codex" }] }]
+  }
+}
+```
+
+**GitHub Copilot CLI** (`~/.copilot/config.json`):
+```json
+{
+  "hooks": {
+    "sessionStart": [{ "type": "command", "bash": "curl ... /hook/copilot" }]
+  }
+}
+```
+
+### Config File
+
+`~/.config/agentpulse/config.json`:
+```json
+{
+  "setup_done": true,
+  "appearance": {
+    "accent_color": "purple",
+    "text_size": "medium",
+    "pin_expanded": false,
+    "sound_enabled": false,
+    "sound_name": "glass"
+  },
+  "providers": {
+    "claude": { "enabled": true, "name": "Claude Code", "settings_path": "~/.claude/settings.json" },
+    "gemini": { "enabled": true, "name": "Gemini CLI", "settings_path": "~/.gemini/settings.json" },
+    "codex": { "enabled": false, "name": "Codex CLI", "settings_path": "~/.codex/hooks.json" },
+    "copilot": { "enabled": false, "name": "GitHub Copilot", "settings_path": "~/.copilot/config.json" }
+  }
+}
+```
 
 ## Tech Stack
 
-- **Tauri v2** — Cross-platform desktop framework
-- **Rust** — Backend (HTTP server, session management, window control)
-- **HTML / CSS / JS** — Frontend UI (no framework, no bundler)
-- **Tokio** — Async runtime for the hook server
-- **WebKitGTK** — Linux webview (via Tauri/WRY)
+| Component | Technology |
+|-----------|-----------|
+| Framework | Tauri v2 |
+| Backend | Rust (tokio, serde, chrono) |
+| Frontend | HTML / CSS / JS (no framework, no bundler) |
+| HTTP Server | tokio TCP (raw HTTP parsing) |
+| Window | WebKitGTK (Linux), WebView2 (Windows), WKWebView (macOS) |
+| Icons | [@lobehub/icons](https://github.com/lobehub/lobe-icons) (inline SVG) |
+| Linux extras | `webkit2gtk`, `gtk`, `gdk` crates for window management |
 
 ## Project Structure
 
 ```
 AgentPulse/
-├── src/                        # Frontend
-│   ├── index.html              # Main HTML
-│   ├── styles.css              # All styles
-│   └── main.js                 # All logic (Tauri IPC, state, UI)
-├── src-tauri/                  # Backend
-│   ├── Cargo.toml              # Rust dependencies
-│   ├── tauri.conf.json         # Tauri config (window, tray, bundle)
-│   ├── capabilities/           # Tauri v2 permissions
+├── src/                           # Frontend
+│   ├── index.html                 # Main HTML (capsule, expanded, settings views)
+│   ├── styles.css                 # All styles (no transitions for X11 compat)
+│   └── main.js                    # All logic: Tauri IPC, state, UI, provider icons
+├── src-tauri/                     # Backend
+│   ├── Cargo.toml                 # Rust dependencies
+│   ├── tauri.conf.json            # Tauri config (window, tray, bundle)
+│   ├── capabilities/default.json  # Tauri v2 permissions
 │   └── src/
-│       ├── lib.rs              # App setup, tray, window management
-│       ├── hook_server.rs      # HTTP server (tokio TCP)
-│       ├── hook_event.rs       # Event data model
-│       ├── session.rs          # Session state machine & manager
-│       └── hooks_configurator.rs  # Auto-setup ~/.claude/settings.json
+│       ├── lib.rs                 # App setup, tray, window mgmt, Tauri commands
+│       ├── config.rs              # Config file R/W, provider detection
+│       ├── hook_server.rs         # HTTP server, URL routing, event normalization
+│       ├── hook_event.rs          # Event data model (provider, session_id, etc.)
+│       ├── session.rs             # Session state machine, manager, AppState
+│       └── hooks_configurator.rs  # Per-provider hook installation (4 formats)
 ├── package.json
 ├── README.md
 └── LICENSE
-```
-
-## Roadmap: Multi-CLI Support
-
-AgentPulse is designed to grow beyond Claude Code to support multiple AI coding assistants:
-
-| CLI | Status |
-|-----|--------|
-| Claude Code | Supported |
-| Gemini CLI | Planned |
-| GitHub Copilot CLI | Planned |
-| OpenAI Codex CLI | Planned |
-
-### Planned Design
-
-- Each session row shows the corresponding **CLI icon** (instead of a colored dot)
-- Capsule shows **active CLI icons** separated by `|` when multiple CLIs are in use
-- **Config file** (`~/.config/agentpulse/config.json`) for per-CLI hook configuration
-
-```
-Capsule:  [Claude|Gemini]  my-app  Working...  00:14
-
-Expanded:
-  [Claude icon]   my-app       working     00:14
-                  ~/projects/my-app
-                  Fix the login bug
-  [Gemini icon]   web-scraper  idle
-                  ~/projects/web-scraper
-  [Copilot icon]  api-server   waiting     01:23
-                  ~/projects/api-server
-                  Add rate limiting
 ```
 
 ## Known Limitations (Linux / X11)
 
 | Issue | Workaround |
 |-------|------------|
-| Transparent `rgba()` backgrounds cause ghosting | Using opaque `rgb()` backgrounds with transparent window for rounded corners only |
-| CSS `-webkit-app-region: drag` doesn't work | Using Tauri `startDragging()` API |
-| `mouseleave` events unreliable on transparent windows | Using Tauri event system + CSS `:hover` polling |
-| `<select>` dropdown uses system native styling | Replaced with custom div-based dropdown |
+| `rgba()` backgrounds ghost on transparent windows | Use opaque `rgb()` backgrounds; transparent window only for rounded corners |
+| CSS `-webkit-app-region: drag` doesn't work | Tauri `startDragging()` API |
+| `mouseleave` unreliable on transparent windows | Tauri cursor-left event + CSS `:hover` polling |
+| `<select>` uses system native styling | Custom div-based dropdown |
+| CSS `transition` / `animation` causes ghosting | All transitions removed; bounce via Rust `set_position` |
+| `transform: translateZ(0)` creates black compositing layers | Not used |
 
 ## Credits
 
 - Original [ClaudePulse](https://github.com/tzangms/ClaudePulse) by [@tzangms](https://github.com/tzangms)
+- Provider icons from [@lobehub/icons](https://github.com/lobehub/lobe-icons)
 
 ## License
 
