@@ -27,12 +27,19 @@ jobs:
         include:
           - platform: ubuntu-22.04
             name: linux
-          - platform: macos-latest        # Apple Silicon (arm64)
+            rust-target: ""
+          # Both macOS builds run on the Apple-Silicon runner (macos-latest);
+          # macos-13 was retired by GitHub. We cross-compile x86_64 from arm64
+          # using rustup + Xcode's bundled SDK.
+          - platform: macos-latest
             name: macos-arm64
-          - platform: macos-13            # Intel Mac (x86_64)
+            rust-target: aarch64-apple-darwin
+          - platform: macos-latest
             name: macos-x64
+            rust-target: x86_64-apple-darwin
           - platform: windows-latest
             name: windows
+            rust-target: ""
 
     runs-on: ${{ matrix.platform }}
 
@@ -42,10 +49,15 @@ jobs:
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
 
+      - name: Add rust target
+        if: matrix.rust-target != ''
+        run: rustup target add ${{ matrix.rust-target }}
+
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+          key: ${{ matrix.rust-target }}
 
       - name: Install Linux dependencies
         if: matrix.platform == 'ubuntu-22.04'
@@ -67,12 +79,23 @@ jobs:
         run: cargo binstall -y tauri-cli@^2.0
 
       - name: Build (no bundle)
-        run: cargo tauri build --no-bundle
+        shell: bash
+        run: |
+          if [[ -n "${{ matrix.rust-target }}" ]]; then
+            cargo tauri build --target ${{ matrix.rust-target }} --no-bundle
+          else
+            cargo tauri build --no-bundle
+          fi
 
       - name: Package zip
         shell: bash
         run: |
-          cd src-tauri/target/release
+          if [[ -n "${{ matrix.rust-target }}" ]]; then
+            BUILD_DIR="src-tauri/target/${{ matrix.rust-target }}/release"
+          else
+            BUILD_DIR="src-tauri/target/release"
+          fi
+          cd "$BUILD_DIR"
           ZIP_NAME="agent-pulse-${{ github.ref_name }}-${{ matrix.name }}.zip"
           if [[ "$RUNNER_OS" == "Windows" ]]; then
             7z a -tzip "$ZIP_NAME" agent-pulse.exe agent-pulse-hook.exe
