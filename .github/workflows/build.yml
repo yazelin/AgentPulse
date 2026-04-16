@@ -34,7 +34,7 @@ jobs:
     runs-on: ${{ matrix.platform }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@stable
@@ -57,14 +57,17 @@ jobs:
             libsoup-3.0-dev \
             libjavascriptcoregtk-4.1-dev
 
+      - name: Install cargo-binstall
+        uses: cargo-bins/cargo-binstall@main
+
       - name: Install Tauri CLI
-        run: cargo install tauri-cli --version "^2.0" --locked
+        run: cargo binstall -y tauri-cli@^2.0
 
       - name: Build (no bundle)
         run: cargo tauri build --no-bundle
 
       - name: Upload binary
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: agent-pulse-${{ matrix.name }}
           path: |
