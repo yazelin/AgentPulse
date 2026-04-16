@@ -12,7 +12,7 @@ cd "$(dirname "$0")"
 MODE="${1:-debug}"
 
 echo "→ Killing any running instance..."
-pkill -9 -f "agent-pulse" 2>/dev/null || true
+pkill -9 -x agent-pulse 2>/dev/null || true
 sleep 1
 
 if [ "$MODE" = "release" ]; then

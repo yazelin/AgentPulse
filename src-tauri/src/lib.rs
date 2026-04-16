@@ -223,11 +223,10 @@ fn remove_provider_hooks(
 fn install_provider_hooks(
     provider_id: String,
     config_state: tauri::State<AppConfigState>,
-    port_state: tauri::State<ServerPort>,
 ) -> Result<(), String> {
     let mut config = config_state.0.lock().unwrap();
     if let Some(provider) = config.providers.get(&provider_id) {
-        hooks_configurator::install_provider(&provider_id, provider, port_state.0)?;
+        hooks_configurator::install_provider(&provider_id, provider)?;
         // Mark as enabled
         if let Some(p) = config.providers.get_mut(&provider_id) {
             p.enabled = true;

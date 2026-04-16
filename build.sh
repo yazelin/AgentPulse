@@ -15,7 +15,7 @@ set -e
 cd "$(dirname "$0")"
 
 echo "→ Killing any running instance..."
-pkill -9 -f "agent-pulse" 2>/dev/null || true
+pkill -9 -x agent-pulse 2>/dev/null || true
 sleep 1
 
 echo "→ Building release (cargo tauri build)..."

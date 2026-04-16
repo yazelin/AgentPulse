@@ -73,5 +73,7 @@ jobs:
           path: |
             src-tauri/target/release/agent-pulse
             src-tauri/target/release/agent-pulse.exe
+            src-tauri/target/release/agent-pulse-hook
+            src-tauri/target/release/agent-pulse-hook.exe
           if-no-files-found: ignore
           retention-days: 7

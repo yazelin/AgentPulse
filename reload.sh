@@ -9,7 +9,7 @@ set -e
 cd "$(dirname "$0")"
 
 echo "→ Killing running instance..."
-pkill -9 -f "agent-pulse" 2>/dev/null || true
+pkill -9 -x agent-pulse 2>/dev/null || true
 sleep 1
 
 if [ -f "src-tauri/target/release/agent-pulse" ]; then

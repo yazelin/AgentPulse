@@ -51,13 +51,25 @@ pub fn provider_needs_setup(_provider_id: &str, config: &ProviderConfig) -> bool
     true
 }
 
-/// Generate curl command that POSTs the hook event JSON to AgentPulse
-fn curl_cmd(provider_id: &str, port: u16) -> String {
-    format!(
-        "curl -sf -m 2 -X POST -H 'Content-Type: application/json' \
-         -d \"$(cat)\" \
-         http://localhost:$(cat ~/.agentpulse/port 2>/dev/null || echo {port})/hook/{provider_id} || true"
-    )
+/// Absolute path to the sidecar binary, expected next to the main exe.
+/// Shipping a binary (not a shell one-liner) keeps hook commands
+/// shell-agnostic across bash / PowerShell / cmd.exe.
+fn sidecar_path() -> PathBuf {
+    let exe_name = if cfg!(windows) {
+        "agent-pulse-hook.exe"
+    } else {
+        "agent-pulse-hook"
+    };
+    std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|d| d.join(exe_name)))
+        .unwrap_or_else(|| PathBuf::from(exe_name))
+}
+
+/// Build the hook command string. The sidecar reads stdin + port file
+/// itself, so no shell substitution is needed.
+fn hook_cmd(provider_id: &str) -> String {
+    format!("\"{}\" {provider_id}", sidecar_path().display())
 }
 
 /// Remove only AgentPulse hooks (those containing "agentpulse" string) from a provider's config
@@ -102,7 +114,7 @@ pub fn remove_provider(provider_id: &str, config: &ProviderConfig) -> Result<(),
 }
 
 /// Install hooks for a provider (removes existing AgentPulse hooks first to avoid duplicates)
-pub fn install_provider(provider_id: &str, config: &ProviderConfig, port: u16) -> Result<(), String> {
+pub fn install_provider(provider_id: &str, config: &ProviderConfig) -> Result<(), String> {
     // Clean up any existing AgentPulse hooks first
     let _ = remove_provider(provider_id, config);
 
@@ -112,16 +124,16 @@ pub fn install_provider(provider_id: &str, config: &ProviderConfig, port: u16) -
     };
 
     match provider_id {
-        "claude" => install_claude_hooks(&path, port),
-        "gemini" => install_gemini_hooks(&path, port),
-        "codex" => install_codex_hooks(&path, port),
-        "copilot" => install_copilot_hooks(&path, port),
+        "claude" => install_claude_hooks(&path),
+        "gemini" => install_gemini_hooks(&path),
+        "codex" => install_codex_hooks(&path),
+        "copilot" => install_copilot_hooks(&path),
         _ => Err(format!("Unknown provider: {provider_id}")),
     }
 }
 
 /// Claude Code: hooks in ~/.claude/settings.json
-fn install_claude_hooks(path: &PathBuf, port: u16) -> Result<(), String> {
+fn install_claude_hooks(path: &PathBuf) -> Result<(), String> {
     let mut root = load_or_create_json(path)?;
 
     let hooks = root
@@ -130,7 +142,7 @@ fn install_claude_hooks(path: &PathBuf, port: u16) -> Result<(), String> {
         .entry("hooks")
         .or_insert_with(|| json!({}));
 
-    let cmd = curl_cmd("claude", port);
+    let cmd = hook_cmd("claude");
 
     let events = [
         "SessionStart", "SessionEnd", "UserPromptSubmit",
@@ -160,12 +172,12 @@ fn install_claude_hooks(path: &PathBuf, port: u16) -> Result<(), String> {
     }
 
     save_json(path, &root)?;
-    info!("Claude Code hooks configured on port {port}");
+    info!("Claude Code hooks configured");
     Ok(())
 }
 
 /// Gemini CLI: hooks in ~/.gemini/settings.json
-fn install_gemini_hooks(path: &PathBuf, port: u16) -> Result<(), String> {
+fn install_gemini_hooks(path: &PathBuf) -> Result<(), String> {
     let mut root = load_or_create_json(path)?;
 
     let hooks = root
@@ -174,7 +186,7 @@ fn install_gemini_hooks(path: &PathBuf, port: u16) -> Result<(), String> {
         .entry("hooks")
         .or_insert_with(|| json!({}));
 
-    let cmd = curl_cmd("gemini", port);
+    let cmd = hook_cmd("gemini");
 
     let events = [
         "SessionStart", "SessionEnd",
@@ -206,12 +218,12 @@ fn install_gemini_hooks(path: &PathBuf, port: u16) -> Result<(), String> {
     }
 
     save_json(path, &root)?;
-    info!("Gemini CLI hooks configured on port {port}");
+    info!("Gemini CLI hooks configured");
     Ok(())
 }
 
 /// Codex CLI: hooks in ~/.codex/hooks.json + enable feature flag in config.toml
-fn install_codex_hooks(path: &PathBuf, port: u16) -> Result<(), String> {
+fn install_codex_hooks(path: &PathBuf) -> Result<(), String> {
     // 1. Enable codex_hooks feature flag in config.toml
     let config_toml = path.parent()
         .ok_or("Invalid hooks.json path")?
@@ -232,7 +244,7 @@ fn install_codex_hooks(path: &PathBuf, port: u16) -> Result<(), String> {
     }
 
     // 2. Write hooks.json
-    let cmd = curl_cmd("codex", port);
+    let cmd = hook_cmd("codex");
 
     let hooks_json = json!({
         "hooks": {
@@ -257,12 +269,12 @@ fn install_codex_hooks(path: &PathBuf, port: u16) -> Result<(), String> {
     });
 
     save_json(path, &hooks_json)?;
-    info!("Codex CLI hooks configured on port {port}");
+    info!("Codex CLI hooks configured");
     Ok(())
 }
 
 /// GitHub Copilot CLI: hooks in ~/.copilot/config.json
-fn install_copilot_hooks(path: &PathBuf, port: u16) -> Result<(), String> {
+fn install_copilot_hooks(path: &PathBuf) -> Result<(), String> {
     let mut root = load_or_create_json(path)?;
 
     let hooks = root
@@ -271,7 +283,7 @@ fn install_copilot_hooks(path: &PathBuf, port: u16) -> Result<(), String> {
         .entry("hooks")
         .or_insert_with(|| json!({}));
 
-    let cmd = curl_cmd("copilot", port);
+    let cmd = hook_cmd("copilot");
 
     let events = [
         "sessionStart", "sessionEnd", "userPromptSubmitted",
@@ -296,7 +308,7 @@ fn install_copilot_hooks(path: &PathBuf, port: u16) -> Result<(), String> {
     }
 
     save_json(path, &root)?;
-    info!("GitHub Copilot CLI hooks configured on port {port}");
+    info!("GitHub Copilot CLI hooks configured");
     Ok(())
 }
 
