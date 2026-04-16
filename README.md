@@ -5,6 +5,12 @@ A cross-platform desktop app that brings **Dynamic Island-inspired** real-time m
 > Inspired by [ClaudePulse](https://github.com/tzangms/ClaudePulse) by [@tzangms](https://github.com/tzangms) — a beautiful macOS-native app built with Swift/SwiftUI.
 > AgentPulse is a cross-platform rewrite using [Tauri v2](https://tauri.app/) to support **Linux**, **Windows**, and **macOS**, extended with multi-provider support.
 
+## Demo
+
+https://github.com/yazelin/AgentPulse/raw/main/assets/demo.mp4
+
+> If the video above doesn't autoplay in your markdown viewer, open [`assets/demo.mp4`](assets/demo.mp4) directly.
+
 ## Supported AI Coding Assistants
 
 | Provider | Hook Events | Config Location |
@@ -30,7 +36,7 @@ Provider icons from [@lobehub/icons](https://github.com/lobehub/lobe-icons).
 | PostToolUseFailure | `PostToolUseFailure` | — | — | — |
 | Notification | — | `Notification` | — | `errorOccurred` |
 
-All events normalized to PascalCase internally. Each provider's hook command sends JSON via `curl` to `http://localhost:{port}/hook/{provider}`.
+All events normalized to PascalCase internally. Each provider's hook command invokes the bundled sidecar binary `agent-pulse-hook`, which reads the event JSON from stdin and POSTs it to `http://localhost:{port}/hook/{provider}`. Going through a native binary instead of an inline shell one-liner keeps hooks shell-agnostic across bash / PowerShell / cmd.exe.
 
 ### Field Name Normalization
 
@@ -54,12 +60,13 @@ SessionStart ──▶ Idle
     UserPromptSubmit / PreToolUse / PostToolUse
                   │
                   ▼
-               Working ──Stop──▶ Idle (+ sound if enabled)
+               Working ──Stop──▶ Idle (+ completion sound)
                   │
           PermissionRequest
                   │
                   ▼
            WaitingForUser ──PreToolUse──▶ Working
+              (+ waiting sound on entry)
 ```
 
 **Timeout-based transitions** (checked every 10 seconds):
@@ -79,7 +86,7 @@ SessionStart ──▶ Idle
 | `SessionStart` | → Idle (new session created) |
 | `UserPromptSubmit` | → Working |
 | `PreToolUse` / `PostToolUse` / `PostToolUseFailure` | → Working |
-| `PermissionRequest` | → WaitingForUser |
+| `PermissionRequest` | → WaitingForUser (triggers waiting sound on first entry) |
 | `Stop` | → Idle (triggers completion sound if was Working) |
 | `SessionEnd` | Session removed from list |
 
@@ -94,24 +101,32 @@ SessionStart ──▶ Idle
 
 ## Sound System
 
-External MP3/WAV/OGG files in `~/.config/agentpulse/sounds/`. Each provider can have its own completion sound.
+External MP3/WAV/OGG files in `~/.config/agentpulse/sounds/`. Each provider can have two independent sounds: one for **completion** (Working → Idle) and one for **waiting for user** (any state → WaitingForUser).
 
 ### Setup
 
-1. Open Settings → **Sounds** tab → enable **Sound on Complete**
-2. **Per-Provider Sounds** section shows one dropdown per provider
+1. Open Settings → **Sounds** tab → enable **Notification Sounds**
+2. Two sections appear:
+   - **On Complete** — dropdown per provider
+   - **On Waiting For User** — dropdown per provider
 3. Click 📁 to open the sounds folder
 4. Drop your MP3/WAV/OGG files there
-5. Files appear in the dropdowns (each dropdown rescans on click)
+5. Files appear in the dropdowns (each rescans on click)
 6. Click ▶ next to each provider to preview
 
 ### Auto-matching
 
-If a sound file starts with the provider ID (e.g., `claude.mp3`, `gemini.wav`), AgentPulse auto-assigns it on first launch.
+On first launch, AgentPulse auto-assigns files by filename prefix:
+- `{provider}.mp3` → completion sound (e.g. `claude.mp3`)
+- `{provider}-waiting.mp3` → waiting sound (e.g. `claude-waiting.mp3`)
 
 ### Bundled defaults
 
-The repo's `sounds/` directory contains 4 default TTS sounds (Chinese voice "曉臻"). On first launch they are copied into `~/.config/agentpulse/sounds/`.
+The repo's `sounds/` directory ships 8 default TTS sounds (Taiwanese voice `zh-TW-HsiaoChenNeural` / 曉臻):
+- 4 completion clips: `{provider}.mp3` — e.g. "Claude 任務完成"
+- 4 waiting clips: `{provider}-waiting.mp3` — e.g. "Claude 等待回應"
+
+On every launch, any missing default is copied into `~/.config/agentpulse/sounds/` — so upgrading also picks up new clips automatically without clobbering user customisations.
 
 ### Generate your own TTS sounds (optional)
 
@@ -122,9 +137,14 @@ pip install edge-tts
 mkdir -p ~/.config/agentpulse/sounds
 
 for p in claude gemini copilot codex; do
+  # completion
   edge-tts --voice "zh-TW-HsiaoChenNeural" \
-           --text "${p}任務完成" \
+           --text "${p} 任務完成" \
            --write-media ~/.config/agentpulse/sounds/${p}.mp3
+  # waiting
+  edge-tts --voice "zh-TW-HsiaoChenNeural" \
+           --text "${p} 等待回應" \
+           --write-media ~/.config/agentpulse/sounds/${p}-waiting.mp3
 done
 ```
 
@@ -139,7 +159,8 @@ Audio playback uses [`rodio`](https://github.com/RustAudio/rodio) (Rust-side, no
 - **3-Line Session Info** — Project name + status, working directory, last prompt (italic)
 - **Remove Session** — X button appears on row hover, click to remove
 - **Smart Re-render** — Timer updates in-place, only structural changes trigger full re-render
-- **Per-Provider Sounds** — Each CLI plays its own sound on completion (Rust rodio)
+- **Per-Provider Sounds** — Each CLI has independent sounds for completion and waiting-for-user states (Rust rodio)
+- **Single Instance** — Second launch focuses the running window; no duplicate tray icons
 - **Bounce Animation** — Window bounces when collapsing
 - **Draggable** — Drag capsule anywhere
 - **Light / Dark Theme** — Toggle in Settings or Tray
@@ -232,10 +253,10 @@ Three scripts for different workflows:
 
 ### First Launch
 
-1. AgentPulse opens with Settings showing detected providers (auto-checked if found via `which`)
-2. Confirm/adjust provider selection — hooks are auto-installed/removed on toggle
-3. (Optional) Switch to Sounds tab, enable sounds, customize per-provider
-4. Close settings — the capsule is ready
+1. AgentPulse opens with Settings → **Providers** tab. All providers start disabled; detection via `which` only shows a "detected" hint next to each so you know which CLIs are installed.
+2. Toggle each provider you want on — each toggle immediately writes/removes its hook config (`~/.claude/settings.json`, `~/.gemini/settings.json`, etc.). No need to toggle-off-and-on.
+3. (Optional) Switch to **Sounds** tab, enable **Notification Sounds**, customise per-provider completion and waiting clips.
+4. Close settings — the capsule is ready.
 
 ### Controls
 
@@ -271,8 +292,9 @@ Three scripts for different workflows:
 - Disabled providers show "coming soon" if hook setup not implemented
 
 **Sounds tab:**
-- Toggle "Sound on Complete"
-- Per-provider sound dropdown (rescans folder on click)
+- Toggle "Notification Sounds" (master switch for both completion and waiting clips)
+- Two sections below — **On Complete** and **On Waiting For User** — each with per-provider dropdown
+- Each dropdown rescans the sounds folder on click
 - ▶ preview button per row
 - 📁 opens sounds folder
 
@@ -287,39 +309,43 @@ Three scripts for different workflows:
 ### How It Works
 
 ```
-Claude Code ──curl──▶
-Gemini CLI  ──curl──▶  AgentPulse HTTP Server
-Codex CLI   ──curl──▶  (localhost:19280-19289)
-Copilot CLI ──curl──▶
-                              │
-                              ▼
-                      Session Manager
-                      (state machine, timers)
-                              │
-                              ▼
-                      Capsule UI (1s polling)
+Claude Code ─┐
+Gemini CLI   │ hook cmd: `agent-pulse-hook <provider>`
+Codex CLI    │ ──► sidecar binary reads stdin + POSTs ──► AgentPulse HTTP Server
+Copilot CLI  ┘                                            (localhost:19280-19289)
+                                                                    │
+                                                                    ▼
+                                                            Session Manager
+                                                            (state machine, timers)
+                                                                    │
+                                                                    ▼
+                                                            Capsule UI (1s polling)
 ```
 
 1. AgentPulse starts a TCP server on port 19280-19289 (tries each in range)
 2. Port written to `~/.agentpulse/port`
 3. On provider enable, hooks written to each CLI's config file (auto-cleans existing AgentPulse hooks before re-installing)
-4. Each CLI sends JSON events via `curl` to `/hook/{provider_id}`
-5. Server parses URL `/hook/{id}` → identifies provider
-6. Field name normalization handles different CLI JSON conventions
-7. Event names normalized to common PascalCase set
-8. Session manager updates state machine
-9. UI polls state every 1 second; smart re-render only on structural changes
-10. On Stop event: emits `task-completed` event with provider ID → JS plays per-provider sound
+4. Each CLI invokes `agent-pulse-hook <provider_id>`, piping the event JSON on stdin
+5. The sidecar reads the port file, POSTs the JSON body to `/hook/{provider_id}`, swallows any network error (so a hook misfire never breaks the host CLI)
+6. Server parses URL `/hook/{id}` → identifies provider
+7. Field name normalization handles different CLI JSON conventions
+8. Event names normalized to common PascalCase set
+9. Session manager updates state machine
+10. UI polls state every 1 second; smart re-render only on structural changes
+11. On Working → Idle: emits `task-completed` with provider ID → JS plays completion sound
+12. On any → WaitingForUser: emits `task-waiting` with provider ID → JS plays waiting sound
 
 ### Hook Installation Details
 
-The same `curl` command is generated by `curl_cmd(provider_id, port)` and inserted into each CLI's hook config:
+Each CLI gets the same logical command: run the sidecar binary, pass the provider id. `hook_cmd(provider_id)` in `hooks_configurator.rs` builds the string using the absolute path of `agent-pulse-hook` (resolved via `current_exe().parent()` so it always sits next to the main binary):
 
-```bash
-curl -sf -m 2 -X POST -H 'Content-Type: application/json' \
-  -d "$(cat)" \
-  http://localhost:$(cat ~/.agentpulse/port 2>/dev/null || echo PORT)/hook/PROVIDER_ID || true
 ```
+"/absolute/path/to/agent-pulse-hook" <provider_id>
+```
+
+The sidecar reads the stdin body, resolves the live port from `~/.agentpulse/port`, and POSTs to `/hook/<provider_id>`. No bash, no PowerShell, no `$(cat)` — works identically on every OS.
+
+**Why a sidecar?** Before v0.2, hook commands were a bash one-liner using `$(cat)` and `curl`. Each CLI on Windows executes hook commands through a different shell (Claude's optional `shell: powershell` field, Gemini's hard-coded PowerShell, Copilot's separate `powershell` field, Codex — Windows disabled entirely). Maintaining four dialects of the same command is fragile. A native binary invocation sidesteps every shell-quoting edge case.
 
 **Claude Code** (`~/.claude/settings.json`):
 ```json
@@ -327,7 +353,7 @@ curl -sf -m 2 -X POST -H 'Content-Type: application/json' \
   "hooks": {
     "SessionStart": [{
       "matcher": "",
-      "hooks": [{ "type": "command", "command": "curl ... /hook/claude", "async": true }]
+      "hooks": [{ "type": "command", "command": "\"/usr/bin/agent-pulse-hook\" claude", "async": true }]
     }]
   }
 }
@@ -339,7 +365,7 @@ curl -sf -m 2 -X POST -H 'Content-Type: application/json' \
   "hooks": {
     "BeforeAgent": [{
       "matcher": "",
-      "hooks": [{ "type": "command", "command": "curl ... /hook/gemini", "async": true }]
+      "hooks": [{ "type": "command", "command": "\"/usr/bin/agent-pulse-hook\" gemini", "async": true }]
     }]
   }
 }
@@ -350,7 +376,7 @@ curl -sf -m 2 -X POST -H 'Content-Type: application/json' \
 {
   "hooks": {
     "SessionStart": [{
-      "hooks": [{ "type": "command", "command": "curl ... /hook/codex" }]
+      "hooks": [{ "type": "command", "command": "\"/usr/bin/agent-pulse-hook\" codex" }]
     }]
   }
 }
@@ -360,13 +386,13 @@ And in `config.toml`:
 [features]
 codex_hooks = true
 ```
-(Codex hooks are behind a feature flag in the current beta.)
+(Codex hooks are behind a feature flag in the current beta. OpenAI currently disables hook execution on Windows; the sidecar command is still written but won't fire until they re-enable it.)
 
 **GitHub Copilot CLI** (`~/.copilot/config.json` — uses `bash` field):
 ```json
 {
   "hooks": {
-    "sessionStart": [{ "type": "command", "bash": "curl ... /hook/copilot" }]
+    "sessionStart": [{ "type": "command", "bash": "\"/usr/bin/agent-pulse-hook\" copilot" }]
   }
 }
 ```
@@ -388,18 +414,24 @@ codex_hooks = true
       "gemini": "gemini.mp3",
       "codex": "__none__",
       "copilot": "copilot.mp3"
+    },
+    "provider_waiting_sounds": {
+      "claude": "claude-waiting.mp3",
+      "gemini": "gemini-waiting.mp3",
+      "codex": "__none__",
+      "copilot": "copilot-waiting.mp3"
     }
   },
   "providers": {
-    "claude": { "enabled": true, "name": "Claude Code", "settings_path": "~/.claude/settings.json" },
-    "gemini": { "enabled": true, "name": "Gemini CLI", "settings_path": "~/.gemini/settings.json" },
+    "claude": { "enabled": false, "name": "Claude Code", "settings_path": "~/.claude/settings.json" },
+    "gemini": { "enabled": false, "name": "Gemini CLI", "settings_path": "~/.gemini/settings.json" },
     "codex": { "enabled": false, "name": "Codex CLI", "settings_path": "~/.codex/hooks.json" },
     "copilot": { "enabled": false, "name": "GitHub Copilot", "settings_path": "~/.copilot/config.json" }
   }
 }
 ```
 
-`provider_sounds` value `"__none__"` means user explicitly chose no sound for that provider.
+All providers default to `enabled: false` — the user explicitly turns each one on, which triggers the hook install. (`provider_sounds` / `provider_waiting_sounds` value `"__none__"` means the user explicitly chose no sound for that provider/state combo.)
 
 ## Tech Stack
 
@@ -431,13 +463,19 @@ AgentPulse/
 │       ├── config.rs              # Config R/W, provider detection, sounds dir, default seeding
 │       ├── hook_server.rs         # TCP HTTP server, URL routing, event normalization
 │       ├── hook_event.rs          # RawHookEvent (field aliases) → HookEvent (normalized)
-│       ├── session.rs             # State machine, SessionManager, AppState
-│       └── hooks_configurator.rs  # Per-provider hook install/remove (4 different formats)
+│       ├── session.rs             # State machine, SessionManager, SessionTransition, AppState
+│       ├── hooks_configurator.rs  # Per-provider hook install/remove (4 different formats)
+│       └── bin/
+│           └── agent-pulse-hook.rs # Sidecar binary invoked by CLI hooks; POSTs to localhost
 ├── sounds/                        # Bundled default TTS sounds (zh-TW HsiaoChen voice)
-│   ├── claude.mp3
+│   ├── claude.mp3                 # completion clips
 │   ├── gemini.mp3
 │   ├── codex.mp3
-│   └── copilot.mp3
+│   ├── copilot.mp3
+│   ├── claude-waiting.mp3         # waiting-for-user clips
+│   ├── gemini-waiting.mp3
+│   ├── codex-waiting.mp3
+│   └── copilot-waiting.mp3
 ├── watch.sh                       # Dev mode with frontend hot-reload (devUrl)
 ├── dev.sh                         # Build debug/release binary + run
 ├── reload.sh                      # Restart existing binary (no rebuild)
