@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AgentPulse — Dynamic Island-style monitor for AI coding CLIs</title>
+  <meta name="description" content="Real-time floating status indicator for Claude Code, Gemini CLI, Codex CLI, and GitHub Copilot CLI. Cross-platform desktop app built with Tauri v2." />
+  <meta property="og:title" content="AgentPulse — Dynamic Island-style monitor for AI coding CLIs" />
+  <meta property="og:description" content="Real-time floating status indicator for Claude Code, Gemini CLI, Codex CLI, and GitHub Copilot CLI." />
+  <meta property="og:image" content="https://raw.githubusercontent.com/yazelin/AgentPulse/main/assets/capsule.png" />
+  <link rel="icon" type="image/png" href="https://raw.githubusercontent.com/yazelin/AgentPulse/main/src-tauri/icons/128x128.png" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <nav>
+    <div class="container">
+      <a href="#" class="brand">
+        <span class="brand-logo">A</span>
+        AgentPulse
+      </a>
+      <div class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#states">States</a>
+        <a href="#install">Install</a>
+        <a href="https://github.com/yazelin/AgentPulse" target="_blank" rel="noopener">GitHub</a>
+      </div>
+    </div>
+  </nav>
+
+  <header class="hero">
+    <div class="container">
+      <div class="tag">v0.2 — now cross-platform</div>
+      <h1>Pulse for every<br/>AI coding assistant</h1>
+      <p class="lede">
+        A floating Dynamic Island-style monitor that tracks your Claude Code, Gemini CLI,
+        Codex, and GitHub Copilot sessions in real time — across Linux, macOS, and Windows.
+      </p>
+      <div class="cta">
+        <a href="https://github.com/yazelin/AgentPulse/releases/latest" target="_blank" rel="noopener" class="btn btn-primary">
+          ↓ Download latest
+        </a>
+        <a href="https://github.com/yazelin/AgentPulse" target="_blank" rel="noopener" class="btn btn-secondary">
+          View on GitHub
+        </a>
+      </div>
+      <div class="hero-demo">
+        <img src="https://raw.githubusercontent.com/yazelin/AgentPulse/main/assets/demo.gif" alt="AgentPulse in action" />
+      </div>
+    </div>
+  </header>
+
+  <section class="providers">
+    <div class="container">
+      <div class="providers-label">Works with</div>
+      <div class="providers-row">
+        <span>🌟 Claude Code</span>
+        <span>✨ Gemini CLI</span>
+        <span>🟢 Codex CLI</span>
+        <span>🟣 GitHub Copilot</span>
+      </div>
+    </div>
+  </section>
+
+  <section id="features">
+    <div class="container">
+      <h2>Why AgentPulse</h2>
+      <p class="section-lede">
+        A cross-platform rewrite of the macOS-only
+        <a href="https://github.com/tzangms/ClaudePulse" target="_blank" rel="noopener">ClaudePulse</a>,
+        extended to monitor every major AI coding CLI at once.
+      </p>
+
+      <div class="features">
+        <div class="feature">
+          <div class="feature-icon">🎯</div>
+          <h3>Dynamic Island Style</h3>
+          <p>A single floating capsule that expands into a full session list on hover. Unobtrusive when quiet, information-dense when you need it.</p>
+        </div>
+
+        <div class="feature">
+          <div class="feature-icon">🤖</div>
+          <h3>4 CLIs, 1 window</h3>
+          <p>Claude Code, Gemini CLI, Codex, GitHub Copilot — all tracked simultaneously. Each session shows its provider's official icon.</p>
+        </div>
+
+        <div class="feature">
+          <div class="feature-icon">🔔</div>
+          <h3>Smart notifications</h3>
+          <p>Per-provider audio cues for two events: "task complete" and "waiting for user input". Pick sounds independently for each CLI.</p>
+        </div>
+
+        <div class="feature">
+          <div class="feature-icon">🪟</div>
+          <h3>Truly cross-platform</h3>
+          <p>One hook architecture (via a native sidecar binary) works identically across bash, PowerShell, and cmd.exe — no shell-specific quoting hacks.</p>
+        </div>
+
+        <div class="feature">
+          <div class="feature-icon">🎨</div>
+          <h3>Light / Dark theme</h3>
+          <p>Manual toggle in Settings or Tray. Accent colour picker with five options. Text size S / M / L.</p>
+        </div>
+
+        <div class="feature">
+          <div class="feature-icon">🚀</div>
+          <h3>Single instance</h3>
+          <p>Launching a second time focuses the running window instead of spawning a dead tray icon. Auto-detects installed CLIs on first run.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="states">
+    <div class="container">
+      <h2>Session states at a glance</h2>
+      <p class="section-lede">The capsule colour + label tell you exactly what each session is doing.</p>
+
+      <div class="states-table">
+        <div class="states-row working">
+          <div class="states-label"><span class="states-dot"></span> Working</div>
+          <div class="states-desc">CLI is actively processing — running tools, generating, thinking</div>
+        </div>
+        <div class="states-row waiting">
+          <div class="states-label"><span class="states-dot"></span> Waiting</div>
+          <div class="states-desc">CLI paused for your input (permission prompt, confirmation)</div>
+        </div>
+        <div class="states-row idle">
+          <div class="states-label"><span class="states-dot"></span> Idle</div>
+          <div class="states-desc">Session exists but no activity for 30 s</div>
+        </div>
+        <div class="states-row stale">
+          <div class="states-label"><span class="states-dot"></span> Stale</div>
+          <div class="states-desc">No activity for 10 minutes — dims in the list, removed at 30</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="container">
+      <h2>Every surface, deliberately tiny</h2>
+      <p class="section-lede">Settings live in a compact tabbed sheet. No modal spam, no browser tabs.</p>
+
+      <div class="screenshots">
+        <div class="shot">
+          <img src="https://raw.githubusercontent.com/yazelin/AgentPulse/main/assets/settings-providers.png" alt="Providers tab" />
+          <h4>Providers</h4>
+          <p>Toggle each CLI on/off — hooks install or remove immediately. Auto-detection shows which CLIs you already have.</p>
+        </div>
+        <div class="shot">
+          <img src="https://raw.githubusercontent.com/yazelin/AgentPulse/main/assets/settings-sounds.png" alt="Sounds tab" />
+          <h4>Sounds</h4>
+          <p>Per-provider dropdowns for both completion and waiting states. Ship your own MP3s; 📁 opens the folder.</p>
+        </div>
+        <div class="shot">
+          <img src="https://raw.githubusercontent.com/yazelin/AgentPulse/main/assets/settings-appearance.png" alt="Appearance tab" />
+          <h4>Appearance</h4>
+          <p>Theme, accent colour, keep-expanded toggle, and text size — everything that tweaks the look is here.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="install">
+    <div class="container">
+      <h2>Install</h2>
+      <p class="section-lede">v0.2 ships as zip archives — no installer, no package manager. Download, unzip, run.</p>
+
+      <div class="install-card">
+        <h3>🐧 Linux / 🍎 macOS</h3>
+        <pre><code># Grab agent-pulse-v0.2.0-linux.zip (or -macos.zip) from the Releases page
+unzip agent-pulse-v0.2.0-linux.zip -d agent-pulse
+cd agent-pulse
+chmod +x agent-pulse agent-pulse-hook
+./agent-pulse</code></pre>
+        <p class="install-note">Keep <code>agent-pulse</code> and <code>agent-pulse-hook</code> in the same folder — the main app locates the sidecar at its own sibling path.</p>
+      </div>
+
+      <div class="install-card">
+        <h3>🪟 Windows</h3>
+        <ol style="margin-left: 20px; color: var(--text-secondary); font-size: 15px; line-height: 1.9;">
+          <li>Download <code>agent-pulse-v0.2.0-windows.zip</code> from the Releases page</li>
+          <li>Right-click the zip → Extract All → pick any folder</li>
+          <li>Double-click <code>agent-pulse.exe</code></li>
+        </ol>
+        <p class="install-note">SmartScreen may warn on first launch (binaries aren't code-signed). Click <strong>More info → Run anyway</strong>.</p>
+      </div>
+
+      <div style="text-align: center; margin-top: 36px;">
+        <a href="https://github.com/yazelin/AgentPulse/releases/latest" target="_blank" rel="noopener" class="btn btn-primary">
+          Go to latest release
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="container">
+      <div class="footer-links">
+        <a href="https://github.com/yazelin/AgentPulse" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/yazelin/AgentPulse/issues" target="_blank" rel="noopener">Issues</a>
+        <a href="https://github.com/yazelin/AgentPulse/releases" target="_blank" rel="noopener">Releases</a>
+        <a href="https://github.com/yazelin/AgentPulse/blob/main/LICENSE" target="_blank" rel="noopener">MIT License</a>
+      </div>
+      <p>
+        Inspired by <a href="https://github.com/tzangms/ClaudePulse" target="_blank" rel="noopener">ClaudePulse</a>
+        by <a href="https://github.com/tzangms" target="_blank" rel="noopener">@tzangms</a> ·
+        Built with <a href="https://tauri.app/" target="_blank" rel="noopener">Tauri v2</a>
+      </p>
+    </div>
+  </footer>
+</body>
+</html>
