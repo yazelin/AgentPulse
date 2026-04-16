@@ -40,7 +40,7 @@ html, body {
   border-radius: var(--radius);
   border: 0.5px solid rgba(255,255,255,0.12);
 }
-.capsule.has-panel {
+.capsule.has-panel-below {
   border-radius: var(--radius) var(--radius) 0 0;
   border-bottom: none;
 }
@@ -276,15 +276,6 @@ html, body {
 .session-dot { display: none; } /* replaced by provider icon */
 
 /* ─── Setup view ─── */
-#view-setup {
-  background: var(--bg);
-  border-radius: 0 0 var(--radius) var(--radius);
-  border: 0.5px solid rgba(255,255,255,0.12);
-  border-top: none;
-}
-.setup-header { padding: 14px 18px 12px; border-bottom: 0.5px solid var(--border); }
-.setup-body { padding: 16px 18px; display: flex; flex-direction: column; gap: 14px; }
-.setup-desc { font-size: 12px; color: var(--text-secondary); }
 .provider-list { display: flex; flex-direction: column; gap: 8px; }
 .provider-item {
   display: flex; align-items: center; gap: 10px;
@@ -292,9 +283,12 @@ html, body {
   background: rgba(255,255,255,0.03);
 }
 .provider-item:hover { background: rgba(255,255,255,0.06); }
+.provider-item.disabled { opacity: 0.5; cursor: not-allowed; }
+.provider-item.disabled:hover { background: rgba(255,255,255,0.03); }
 .provider-item input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px; }
 .provider-name { font-size: 13px; font-weight: 500; flex: 1; }
 .provider-found { font-size: 10px; color: rgb(77,242,153); font-weight: 500; }
+.provider-pending { font-size: 10px; color: var(--text-muted); font-style: italic; }
 
 /* Settings provider row */
 .provider-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; }

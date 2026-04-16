@@ -6,8 +6,8 @@ function invoke(cmd, args = {}) {
 const PROVIDER_ICONS = {
   claude: `<svg viewBox="0 0 1200 1200" fill="currentColor"><path d="M233.96 800.21L468.64 668.54l3.95-11.44-3.95-6.36-11.44 0-39.22-2.42-134.09-3.62-116.3-4.83-112.67-6.04-28.35-6.04L0 592.75l2.74-17.48 23.84-16.03 34.15 2.98 75.46 5.15 113.23 7.81 82.15 4.83 121.69 12.65 19.33 0 2.74-7.81-6.6-4.83-5.15-4.83L346.39 495.79 219.54 411.87l-66.44-48.32-35.92-24.48-18.12-22.95-7.81-50.09 32.62-35.92 43.81 2.98 11.19 2.98 44.38 34.15 94.79 73.37 123.79 91.17 18.12 15.06 7.25-5.15.89-3.63-8.13-13.61-67.46-121.69-71.84-123.79-31.97-51.3-8.46-30.76c-2.98-12.64-5.15-23.27-5.15-36.24l37.13-50.42 20.54-6.6 49.53 6.6 20.86 18.12 30.76 70.39 49.85 110.82 77.32 150.68 22.63 44.7 12.08 41.4 4.51 12.64h7.81v-7.25l6.36-84.89 11.76-104.21 11.44-134.09 3.94-37.77 18.68-45.26 37.13-24.48 28.99 13.85 23.84 34.15-3.3 22.07-14.17 92.13-27.79 144.32-18.12 96.64 10.55 0 12.08-12.08 48.89-64.91 82.15-102.68 36.24-40.76 42.28-45.02 27.14-21.42 51.3 0 37.77 56.13-16.91 57.99-52.83 67.01-43.81 56.78-62.82 84.56-39.22 67.65 3.63 5.4 9.34-.89 141.91-30.2 76.67-13.85 91.49-15.7 41.4 19.33 4.51 19.65-16.27 40.19-97.85 24.16-114.77 22.95-170.9 40.43-2.09 1.53 2.42 2.98 76.99 7.25 32.94 1.77 80.62 0 150.12 11.19 39.22 25.93 23.52 31.73-3.95 24.16-60.4 30.76-81.5-19.33-190.23-45.26-65.46-16.27-9.02 0v5.4l54.36 53.15 99.62 89.96 124.75 115.97 6.36 28.67-16.03 22.63-16.91-2.42-109.61-82.47-42.28-37.13-95.76-80.62-6.36 0v8.46l22.07 32.29 116.54 175.17 6.04 53.72-8.46 17.48-30.2 10.55-33.18-6.04-68.21-95.76-70.39-107.84-56.78-96.64-6.93 3.95-33.5 360.89-15.7 18.44-36.24 13.85-30.2-22.95-16.03-37.13 16.03-73.37 19.33-95.76 15.7-76.11 14.17-94.55 8.46-31.41-.56-2.09-6.93.89-71.28 97.85-108.4 146.5-85.77 91.81-20.54 8.13-35.6-18.44 3.3-32.94 19.89-29.31 118.74-151.01 71.6-93.58 46.23-53.72-.32-7.81-2.74 0L205.29 929.4l-56.13 7.25-24.16-22.63 2.98-37.13 11.44-12.08 94.79-65.23z"/></svg>`,
   gemini: `<svg viewBox="0 0 65 65" fill="currentColor"><path d="M32.447 0c.68 0 1.273.465 1.439 1.125a38.904 38.904 0 001.999 5.905c2.152 5 5.105 9.376 8.854 13.125 3.751 3.75 8.126 6.703 13.125 8.855a38.98 38.98 0 005.906 1.999c.66.166 1.124.758 1.124 1.438 0 .68-.464 1.273-1.125 1.439a38.902 38.902 0 00-5.905 1.999c-5 2.152-9.375 5.105-13.125 8.854-3.749 3.751-6.702 8.126-8.854 13.125a38.973 38.973 0 00-2 5.906 1.485 1.485 0 01-1.438 1.124c-.68 0-1.272-.464-1.438-1.125a38.913 38.913 0 00-2-5.905c-2.151-5-5.103-9.375-8.854-13.125-3.75-3.749-8.125-6.702-13.125-8.854a38.973 38.973 0 00-5.905-2A1.485 1.485 0 010 32.448c0-.68.465-1.272 1.125-1.438a38.903 38.903 0 005.905-2c5-2.151 9.376-5.104 13.125-8.854 3.75-3.749 6.703-8.125 8.855-13.125a38.972 38.972 0 001.999-5.905A1.485 1.485 0 0132.447 0z"/></svg>`,
-  copilot: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h-2v-2h2v2zm0-4h-2V7h2v6zm4 4h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>`,
-  codex: `<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="10"/></svg>`,
+  copilot: `<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C8 2 4.5 4.5 4 8v3c0 1 .5 2 1.5 2.5V15c0 1.5 1 2.5 2.5 2.5h8c1.5 0 2.5-1 2.5-2.5v-1.5c1-.5 1.5-1.5 1.5-2.5V8c-.5-3.5-4-6-8-6zM8.5 11a1.5 1.5 0 110-3 1.5 1.5 0 010 3zm7 0a1.5 1.5 0 110-3 1.5 1.5 0 010 3zM9 15.5a1 1 0 112 0 1 1 0 01-2 0zm4 0a1 1 0 112 0 1 1 0 01-2 0z"/><path d="M6 9c0-1.5.5-3 2-4s3-1.5 4-1.5 2.5.5 4 1.5 2 2.5 2 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>`,
+  codex: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 16l5-4-5-4"/><line x1="13" y1="18" x2="19" y2="18"/></svg>`,
 };
 
 const PROVIDER_COLORS = {
@@ -43,10 +43,9 @@ async function fitWindow() {
 function showView(view) {
   const wasExpanded = currentView !== "capsule";
   currentView = view;
-  $("view-setup").classList.toggle("hidden", view !== "setup");
   $("view-expanded").classList.toggle("hidden", view !== "expanded");
   $("view-settings").classList.toggle("hidden", view !== "settings");
-  $("capsule").classList.toggle("has-panel", view !== "capsule" && view !== "setup");
+  $("capsule").classList.toggle("has-panel-below", view === "expanded" || view === "settings");
   fitWindow();
   if (view === "capsule" && wasExpanded) {
     collapsedAt = Date.now();
@@ -76,10 +75,11 @@ async function init() {
   $("toggle-pin").checked = appConfig.appearance.pin_expanded;
   if (appConfig.appearance.sound_enabled) $("sound-picker").classList.remove("hidden");
 
-  // Check if any provider needs setup
-  const needsSetup = await checkAnyProviderNeedsSetup();
-  if (needsSetup) {
-    await showSetupView();
+  // First launch → open settings automatically
+  const firstLaunch = localStorage.getItem("setupDone") !== "true";
+  if (firstLaunch) {
+    await renderProviders();
+    showView("settings");
   } else {
     await fitWindow();
     if (appConfig.appearance.pin_expanded) {
@@ -87,21 +87,6 @@ async function init() {
       showView("expanded");
     }
   }
-
-  // Setup done button
-  $("btn-setup-done").addEventListener("click", async () => {
-    // Install hooks for checked providers
-    const checkboxes = document.querySelectorAll(".provider-check:checked");
-    for (const cb of checkboxes) {
-      try {
-        await invoke("install_provider_hooks", { providerId: cb.dataset.provider });
-      } catch (e) {
-        console.error(`Failed to install ${cb.dataset.provider}:`, e);
-      }
-    }
-    appConfig = await invoke("get_config");
-    showView("capsule");
-  });
 
   // Drag
   $("capsule").addEventListener("mousedown", (e) => {
@@ -144,8 +129,11 @@ async function init() {
   });
 
   // Settings
-  $("btn-settings").addEventListener("click", () => { renderSettingsProviders(); showView("settings"); });
-  $("btn-close-settings").addEventListener("click", () => showView(appConfig.appearance.pin_expanded ? "expanded" : "capsule"));
+  $("btn-settings").addEventListener("click", () => { renderProviders(); showView("settings"); });
+  $("btn-close-settings").addEventListener("click", () => {
+    localStorage.setItem("setupDone", "true");
+    showView(appConfig.appearance.pin_expanded ? "expanded" : "capsule");
+  });
 
   $("toggle-pin").addEventListener("change", (e) => {
     appConfig.appearance.pin_expanded = e.target.checked;
@@ -182,48 +170,48 @@ async function init() {
   setInterval(refreshState, 1000);
 }
 
-// ─── Setup view ───
-async function checkAnyProviderNeedsSetup() {
-  for (const [id, provider] of Object.entries(appConfig.providers)) {
-    if (provider.enabled) {
-      try {
-        const needs = await invoke("check_provider_setup", { providerId: id });
-        if (needs) return true;
-      } catch (e) {}
-    }
-  }
-  // Check if no providers are enabled at all
-  const anyEnabled = Object.values(appConfig.providers).some(p => p.enabled);
-  return !anyEnabled;
-}
-
-async function showSetupView() {
+// ─── Providers in settings ───
+async function renderProviders() {
   const detected = await invoke("detect_installed_providers");
   const list = $("provider-list");
+
   list.innerHTML = Object.entries(appConfig.providers).map(([id, p]) => {
     const found = detected[id] || false;
-    const checked = p.enabled || found ? "checked" : "";
-    const status = found ? '<span class="provider-found">detected</span>' : '';
-    return `<label class="provider-item">
-      <input type="checkbox" class="provider-check" data-provider="${id}" ${checked} ${!p.settings_path ? 'disabled' : ''}>
+    const canEnable = !!p.settings_path;
+    const checked = p.enabled ? "checked" : "";
+    const statusText = !canEnable ? "coming soon"
+                     : found ? "detected"
+                     : "";
+    const statusClass = !canEnable ? "provider-pending"
+                      : found ? "provider-found"
+                      : "";
+
+    return `<label class="provider-item ${!canEnable ? 'disabled' : ''}">
+      <input type="checkbox" class="provider-check" data-provider="${id}" ${checked} ${!canEnable ? 'disabled' : ''}>
       ${providerIconHtml(id, 18)}
       <span class="provider-name">${esc(p.name)}</span>
-      ${status}
+      ${statusText ? `<span class="${statusClass}">${statusText}</span>` : ""}
     </label>`;
   }).join("");
-  showView("setup");
-}
 
-// ─── Settings providers section ───
-function renderSettingsProviders() {
-  const el = $("settings-providers");
-  el.innerHTML = Object.entries(appConfig.providers).map(([id, p]) => {
-    return `<div class="provider-row">
-      ${providerIconHtml(id, 16)}
-      <span class="provider-name-sm">${esc(p.name)}</span>
-      <span class="provider-status-sm">${p.enabled ? 'enabled' : 'disabled'}</span>
-    </div>`;
-  }).join("");
+  // Listen for toggle changes
+  list.querySelectorAll(".provider-check").forEach(cb => {
+    cb.addEventListener("change", async () => {
+      const pid = cb.dataset.provider;
+      if (cb.checked) {
+        // Enable and install hooks
+        try {
+          await invoke("install_provider_hooks", { providerId: pid });
+        } catch (e) {}
+      } else {
+        // Just disable in config
+        appConfig.providers[pid].enabled = false;
+        await saveConfig();
+      }
+      appConfig = await invoke("get_config");
+      localStorage.setItem("setupDone", "true");
+    });
+  });
 }
 
 // ─── Dropdown ───

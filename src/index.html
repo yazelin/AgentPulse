@@ -8,19 +8,7 @@
 </head>
 <body>
   <div id="app">
-    <!-- Setup view (first launch) -->
-    <div id="view-setup" class="hidden">
-      <div class="setup-header">
-        <span class="settings-title">AgentPulse Setup</span>
-      </div>
-      <div class="setup-body">
-        <p class="setup-desc">Select AI coding assistants to monitor:</p>
-        <div id="provider-list" class="provider-list"></div>
-        <button id="btn-setup-done" class="btn-primary" style="width:100%">Start Monitoring</button>
-      </div>
-    </div>
-
-    <!-- Capsule -->
+    <!-- Capsule (always on top, always draggable) -->
     <div id="capsule" class="capsule">
       <div id="capsule-icons" class="capsule-icons"></div>
       <span id="capsule-project" class="capsule-project">AgentPulse</span>
@@ -30,7 +18,7 @@
       <span id="capsule-count" class="capsule-count hidden"></span>
     </div>
 
-    <!-- Expanded view -->
+    <!-- Expanded view (sessions) -->
     <div id="view-expanded" class="hidden">
       <div id="session-list" class="session-list"></div>
       <div class="action-bar">
@@ -47,7 +35,7 @@
       </div>
     </div>
 
-    <!-- Settings view -->
+    <!-- Settings view (includes providers setup) -->
     <div id="view-settings" class="hidden">
       <div class="settings-header">
         <span class="settings-title">Settings</span>
@@ -56,6 +44,15 @@
         </button>
       </div>
       <div class="settings-body">
+        <!-- Providers -->
+        <div class="setting-group-col">
+          <label class="setting-label">Providers</label>
+          <div id="provider-list" class="provider-list"></div>
+        </div>
+
+        <div class="setting-divider"></div>
+
+        <!-- Appearance -->
         <div class="setting-group">
           <div><div class="setting-main-label">Keep Expanded</div><div class="setting-sub-label">Panel stays open without hovering</div></div>
           <label class="toggle"><input type="checkbox" id="toggle-pin" /><span class="toggle-slider"></span></label>
@@ -94,11 +91,6 @@
             <button class="size-btn active" data-size="medium">M</button>
             <button class="size-btn" data-size="large">L</button>
           </div>
-        </div>
-        <div class="setting-divider"></div>
-        <div class="setting-group-col">
-          <label class="setting-label">Providers</label>
-          <div id="settings-providers"></div>
         </div>
         <div class="setting-divider"></div>
         <button id="btn-quit" class="btn-quit">Quit AgentPulse</button>
