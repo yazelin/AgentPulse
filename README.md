@@ -7,9 +7,9 @@ A cross-platform desktop app that brings **Dynamic Island-inspired** real-time m
 
 ## Demo
 
-https://github.com/yazelin/AgentPulse/raw/main/assets/demo.mp4
+![AgentPulse demo](assets/demo.gif)
 
-> If the video above doesn't autoplay in your markdown viewer, open [`assets/demo.mp4`](assets/demo.mp4) directly.
+> Full-quality recording with audio: [`assets/demo.mp4`](assets/demo.mp4)
 
 ## Supported AI Coding Assistants
 
