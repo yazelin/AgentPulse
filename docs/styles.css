@@ -18,6 +18,11 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
+html {
+  /* Smooth scroll for in-page nav links (Features / States / Install). */
+  scroll-behavior: smooth;
+}
+
 html, body {
   background: var(--bg);
   color: var(--text);
@@ -30,7 +35,7 @@ html, body {
 }
 
 a { color: var(--accent); text-decoration: none; }
-a:hover { text-decoration: underline; }
+a:hover { text-decoration: none; opacity: 0.85; }
 
 img { max-width: 100%; display: block; }
 
@@ -61,7 +66,8 @@ nav .container { display: flex; align-items: center; justify-content: space-betw
 /* ─── Hero ─── */
 .hero {
   position: relative;
-  overflow: hidden;
+  /* overflow stays visible so the absolute .live-demo can extend past the
+     hero bottom when Settings opens. The wallpaper does its own clipping. */
   padding: 60px 24px 80px;
 }
 .hero-grid {
@@ -69,25 +75,21 @@ nav .container { display: flex; align-items: center; justify-content: space-betw
   z-index: 1;
   max-width: 1100px;
   margin: 0 auto;
-  display: grid;
-  grid-template-columns: 1fr 400px;
-  gap: 60px;
-  align-items: start;
 }
-@media (max-width: 920px) {
-  .hero-grid {
-    grid-template-columns: 1fr;
-    gap: 40px;
-    text-align: center;
-  }
-  .hero-text { order: 1; }
-  .live-demo { order: 2; justify-self: center; }
+.hero-text {
+  max-width: 560px;
+}
+/* Mobile stacks naturally: text first, demo below. */
+@media (max-width: 919px) {
+  .hero-text { text-align: center; margin: 0 auto; }
+  .live-demo { margin-top: 40px; }
 }
 
 /* Gradient "desktop wallpaper" with soft animated blobs */
 .wallpaper {
   position: absolute;
   inset: 0;
+  overflow: hidden;  /* clip blobs that hang off negative offsets */
   background:
     radial-gradient(ellipse at top left, rgba(124, 58, 237, 0.35), transparent 55%),
     radial-gradient(ellipse at bottom right, rgba(236, 72, 153, 0.28), transparent 55%),
@@ -110,22 +112,27 @@ nav .container { display: flex; align-items: center; justify-content: space-betw
 @keyframes blobFloat2 { 0%,100% { transform: translate(0, 0); } 50% { transform: translate(-60px, 40px); } }
 @keyframes blobFloat3 { 0%,100% { transform: translate(0, 0); } 50% { transform: translate(40px, -40px); } }
 
-/* Live demo column — its height grows with the iframe but never affects
-   the hero-text column because they live in separate grid cells. */
+/* Live demo — on desktop, absolute-positioned overlay in top-right so that
+   growing the iframe never pushes the hero text. On mobile, falls back to
+   normal block flow via the media query below. */
 .live-demo {
   position: relative;
   width: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding-top: 40px;  /* leave room for the Live badge perched at top */
+  gap: 12px;
+}
+@media (min-width: 920px) {
+  .live-demo {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 400px;
+    z-index: 5;
+  }
 }
 .live-demo-badge {
-  position: absolute;
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 2;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -140,6 +147,7 @@ nav .container { display: flex; align-items: center; justify-content: space-betw
   backdrop-filter: blur(10px);
   box-shadow: 0 4px 18px rgba(217, 128, 255, 0.25);
   white-space: nowrap;
+  align-self: center;  /* centered in its flex column slot */
 }
 .live-demo-dot {
   width: 8px;
@@ -148,19 +156,24 @@ nav .container { display: flex; align-items: center; justify-content: space-betw
   background: var(--found);
   box-shadow: 0 0 0 0 rgba(77, 242, 153, 0.6);
   animation: liveDot 1.6s ease-in-out infinite;
+  flex-shrink: 0;
 }
+.live-demo-gear { width: 12px; height: 12px; margin: 0 2px; flex-shrink: 0; color: var(--accent); }
 @keyframes liveDot {
   0%, 100% { box-shadow: 0 0 0 0 rgba(77, 242, 153, 0.6); }
   70% { box-shadow: 0 0 0 10px rgba(77, 242, 153, 0); }
 }
 .live-demo iframe {
   width: 100%;
-  height: 560px;
+  height: 760px;        /* fixed at the tallest state (Settings → Sounds
+                           with both completion + waiting sections fully
+                           open, plus padding + scrollbar room). Empty
+                           area below capsule is transparent so the hero
+                           wallpaper shows through. */
   border: 0;
   background: transparent;
   filter: drop-shadow(0 20px 40px rgba(0, 0, 0, 0.4))
           drop-shadow(0 0 60px rgba(217, 128, 255, 0.25));
-  transition: height 0.2s ease;
 }
 .live-demo-hint {
   margin-top: 12px;
@@ -234,6 +247,38 @@ nav .container { display: flex; align-items: center; justify-content: space-betw
   font-family: inherit;
 }
 .btn:hover { transform: translateY(-1px); text-decoration: none; }
+.btn-icon { width: 16px; height: 16px; flex-shrink: 0; display: block; }
+
+/* Download buttons — 3 side-by-side, each for one OS */
+.dl-btn {
+  min-width: 110px;
+  justify-content: center;
+  position: relative;
+}
+.dl-arch {
+  font-size: 10px;
+  font-weight: 500;
+  opacity: 0.7;
+  margin-left: 2px;
+  letter-spacing: 0.3px;
+}
+
+/* Secondary info row under the three download buttons */
+.cta-secondary {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 14px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+@media (max-width: 920px) { .cta-secondary { justify-content: center; } }
+.cta-secondary a.link-subtle { color: var(--text-secondary); }
+.cta-secondary a.link-subtle:hover { color: var(--text); }
+.cta-sep { color: var(--text-dim); opacity: 0.5; }
+.dl-version-label { font-variant-numeric: tabular-nums; }
+.dl-version-label #dl-version { color: var(--accent); font-weight: 600; }
 .btn-primary {
   background: var(--accent);
   color: #000;
@@ -269,16 +314,28 @@ nav .container { display: flex; align-items: center; justify-content: space-betw
   font-size: 16px;
   font-weight: 500;
 }
-.providers-row span {
+.providers-row > span {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
+.providers-row .provider-logo {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.providers-row .provider-logo svg { width: 100%; height: 100%; }
 
 /* ─── Section ─── */
 section {
   padding: 70px 0;
   border-top: 1px solid var(--border);
+  /* Offset so sticky nav doesn't overlap the section heading when
+     smooth-scrolling via a hash link. */
+  scroll-margin-top: 72px;
 }
 section h2 {
   font-size: clamp(28px, 3.5vw, 40px);
@@ -312,9 +369,20 @@ section .section-lede {
   transform: translateY(-2px);
 }
 .feature-icon {
-  font-size: 28px;
-  margin-bottom: 12px;
+  width: 44px;
+  height: 44px;
+  margin-bottom: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  color: var(--accent);
+  background: linear-gradient(135deg, rgba(217, 128, 255, 0.18), rgba(124, 58, 237, 0.08));
+  border: 1px solid rgba(217, 128, 255, 0.25);
+  border-radius: 12px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
+.feature-icon svg { width: 100%; height: 100%; display: block; }
 .feature h3 {
   font-size: 18px;
   font-weight: 600;
@@ -405,7 +473,20 @@ section .section-lede {
   margin-bottom: 12px;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
+}
+.os-icon-group { display: inline-flex; gap: 8px; align-items: center; }
+.os-icon { width: 20px; height: 20px; display: block; color: var(--text); }
+
+/* Inline SVG icons that sit within flowing prose (e.g. the folder glyph
+   inside the Sounds tab description). */
+.inline-icon {
+  width: 14px;
+  height: 14px;
+  display: inline-block;
+  vertical-align: -2px;
+  color: var(--accent);
+  margin: 0 2px;
 }
 .install-card + .install-card { margin-top: 16px; }
 pre {

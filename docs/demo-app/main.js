@@ -49,7 +49,14 @@ function showView(view) {
   fitWindow();
   if (view === "capsule" && wasExpanded) {
     collapsedAt = Date.now();
-    setTimeout(() => invoke("bounce_window").catch(() => {}), 80);
+    // CSS-based bounce (replaces the Rust bounce_window shim). Brief
+    // forced reflow lets the animation re-fire if we're still in the
+    // "bouncing" state from a prior collapse.
+    const cap = $("capsule");
+    cap.classList.remove("bouncing");
+    void cap.offsetWidth;
+    cap.classList.add("bouncing");
+    setTimeout(() => cap.classList.remove("bouncing"), 300);
   }
 }
 
@@ -492,7 +499,7 @@ function renderCapsule(st) {
     let h = "";
     if (st.active_count > 0) {
       h += `<span class="count-active">${st.active_count}</span>`;
-      if (st.active_count < st.session_count) h += `<span class="count-sep">/</span>`;
+      h += `<span class="count-sep">/</span>`;
     }
     h += `<span class="count-total">${st.session_count}</span>`;
     $("capsule-count").innerHTML = h;

@@ -29,6 +29,11 @@
       flex-direction: column;
       align-items: center;
       gap: 0;
+      /* Stop browser-native text selection and drag-n-drop from
+         hijacking the mousemove/mouseup stream while the user is
+         dragging the capsule. */
+      user-select: none;
+      -webkit-user-select: none;
     }
     #capsule,
     #view-expanded,

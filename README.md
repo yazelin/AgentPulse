@@ -183,19 +183,36 @@ Audio playback uses [`rodio`](https://github.com/RustAudio/rodio) (Rust-side, no
 
 v0.2 releases ship as plain zip archives — no installer, no package manager. Download, unzip, run. The zip contains the main binary plus the `agent-pulse-hook` sidecar; **keep the two files in the same folder** (the main app locates the sidecar at its own sibling path).
 
-### Linux / macOS
+### Linux
 
 ```bash
-# download agent-pulse-v0.2.0-linux.zip (or -macos.zip) from the Releases page
-unzip agent-pulse-v0.2.0-linux.zip -d agent-pulse
+unzip agent-pulse-vX.Y.Z-linux.zip -d agent-pulse
 cd agent-pulse
 chmod +x agent-pulse agent-pulse-hook
 ./agent-pulse
 ```
 
+### macOS
+
+Pick the right build for your chip:
+
+- **Apple Silicon (M1 / M2 / M3 / M4)** → `agent-pulse-vX.Y.Z-macos-arm64.zip`
+- **Intel Mac** → `agent-pulse-vX.Y.Z-macos-x64.zip`
+
+```bash
+unzip agent-pulse-vX.Y.Z-macos-arm64.zip -d agent-pulse
+cd agent-pulse
+chmod +x agent-pulse agent-pulse-hook
+# Strip the quarantine xattr Gatekeeper added on download so the app can launch
+xattr -cr ./agent-pulse ./agent-pulse-hook
+./agent-pulse
+```
+
+**Why the `xattr` step?** AgentPulse binaries aren't signed with an Apple Developer certificate ($99/yr) yet. When you download a zip from the internet, macOS tags the files with `com.apple.quarantine` and Gatekeeper refuses to launch them — you'll see *"cannot be opened because the developer cannot be verified"*. Removing the xattr tells Gatekeeper to skip that check for this one file. Alternatively, right-click the binary in Finder → **Open** → **Open** again in the confirmation dialog.
+
 ### Windows
 
-1. Download `agent-pulse-v0.2.0-windows.zip` from the Releases page
+1. Download `agent-pulse-vX.Y.Z-windows.zip` from the Releases page
 2. Right-click the zip → Extract All → pick any folder
 3. Double-click `agent-pulse.exe` (Windows SmartScreen may warn on first run since the binary isn't code-signed; click **More info → Run anyway**)
 

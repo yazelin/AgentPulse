@@ -292,6 +292,10 @@
     app.addEventListener("mouseleave", () => emit("cursor-left"));
   }
 
+  // Drag was dropped from the demo — the real app uses Tauri's window
+  // drag which doesn't translate to a same-page iframe. A dedicated
+  // Shadow DOM integration is the better long-term path.
+
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", wireCursorLeave);
   } else {

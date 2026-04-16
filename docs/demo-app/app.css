@@ -72,6 +72,20 @@ html, body {
   border-radius: var(--radius) var(--radius) 0 0;
   border-bottom: none;
 }
+
+/* Bounce animation when collapsing from expanded → capsule. Replaces the
+   Rust-side window-position shim. Short + transform-only so it stays on
+   the GPU and (hopefully) avoids X11 ghosting on transparent windows. */
+@keyframes capsuleCollapseBounce {
+  0%   { transform: translateY(-5px); }
+  40%  { transform: translateY(3px); }
+  70%  { transform: translateY(-1px); }
+  100% { transform: translateY(0); }
+}
+.capsule.bouncing {
+  animation: capsuleCollapseBounce 260ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  will-change: transform;
+}
 .capsule-icon {
   display: flex; align-items: center; justify-content: center;
   width: 20px; height: 20px; flex-shrink: 0;
