@@ -152,8 +152,8 @@
     },
     open_sounds_folder: () => { alert("Opening the sounds folder isn't available in the web demo.\nTry downloading AgentPulse to explore this feature."); return null; },
 
-    // providers
-    detect_providers: () => ({ claude: true, gemini: true, codex: true, copilot: true }),
+    // providers — main.js invokes "detect_installed_providers"
+    detect_installed_providers: () => ({ claude: true, gemini: true, codex: true, copilot: true }),
     check_provider_setup: () => false,
     install_provider_hooks: ({ providerId }) => {
       if (state.config.providers[providerId]) state.config.providers[providerId].enabled = true;
@@ -164,12 +164,18 @@
       return null;
     },
     open_provider_settings: () => { alert("Opening the provider's settings file isn't available in the web demo."); return null; },
+    open_url: ({ url }) => { if (url) window.open(url, "_blank", "noopener"); return null; },
 
-    // sessions
-    select_session: ({ sessionId }) => { state.activeId = sessionId; return null; },
-    remove_session: ({ sessionId }) => {
-      delete state.sessions[sessionId];
-      if (state.activeId === sessionId) {
+    // sessions — main.js sends { id }; accept both shapes defensively
+    select_session: (args) => {
+      const id = args.id || args.sessionId;
+      if (id && state.sessions[id]) state.activeId = id;
+      return null;
+    },
+    remove_session: (args) => {
+      const id = args.id || args.sessionId;
+      delete state.sessions[id];
+      if (state.activeId === id) {
         const remaining = Object.keys(state.sessions);
         state.activeId = remaining[0] || null;
       }

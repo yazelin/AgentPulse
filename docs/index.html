@@ -38,9 +38,41 @@
          click the gear, everything's real. Auto-cycles through session states
          so there's something to see even before you interact. -->
     <div class="live-demo" aria-label="Interactive AgentPulse demo">
-      <iframe src="demo-app/" title="AgentPulse interactive demo" loading="eager" scrolling="no"></iframe>
+      <iframe id="demo-iframe" src="demo-app/" title="AgentPulse interactive demo" loading="eager" scrolling="no"></iframe>
       <div class="live-demo-hint">↑ hover the capsule · click ⚙ for settings</div>
     </div>
+
+    <!-- Auto-size the iframe to its content (same-origin, so we can read
+         contentDocument). Keeps the Settings tab from being clipped when
+         the Sounds panel expands. -->
+    <script>
+      (function () {
+        var iframe = document.getElementById("demo-iframe");
+        if (!iframe) return;
+        var MIN_H = 380, MAX_H = 920;
+        function resize() {
+          try {
+            var doc = iframe.contentDocument;
+            if (!doc || !doc.body) return;
+            var h = Math.max(doc.body.scrollHeight, doc.documentElement.scrollHeight);
+            h = Math.min(Math.max(h + 20, MIN_H), MAX_H);
+            iframe.style.height = h + "px";
+          } catch (e) {}
+        }
+        iframe.addEventListener("load", function () {
+          resize();
+          try {
+            new ResizeObserver(resize).observe(iframe.contentDocument.body);
+          } catch (e) {}
+          // Fallback: poll every 400ms for 6s in case the observer misses a frame.
+          var ticks = 0;
+          var t = setInterval(function () {
+            resize();
+            if (++ticks > 15) clearInterval(t);
+          }, 400);
+        });
+      })();
+    </script>
 
     <div class="container hero-text">
       <div class="tag">v0.2 — now cross-platform</div>
