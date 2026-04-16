@@ -5,6 +5,8 @@ use std::path::PathBuf;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AppConfig {
     #[serde(default)]
+    pub setup_done: bool,
+    #[serde(default)]
     pub appearance: AppearanceConfig,
     #[serde(default = "default_providers")]
     pub providers: HashMap<String, ProviderConfig>,
@@ -76,6 +78,7 @@ fn default_providers() -> HashMap<String, ProviderConfig> {
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
+            setup_done: false,
             appearance: AppearanceConfig::default(),
             providers: default_providers(),
         }

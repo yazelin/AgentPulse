@@ -76,7 +76,7 @@ async function init() {
   if (appConfig.appearance.sound_enabled) $("sound-picker").classList.remove("hidden");
 
   // First launch → open settings automatically
-  const firstLaunch = localStorage.getItem("setupDone") !== "true";
+  const firstLaunch = !appConfig.setup_done;
   if (firstLaunch) {
     await renderProviders();
     showView("settings");
@@ -131,7 +131,7 @@ async function init() {
   // Settings
   $("btn-settings").addEventListener("click", () => { renderProviders(); showView("settings"); });
   $("btn-close-settings").addEventListener("click", () => {
-    localStorage.setItem("setupDone", "true");
+    appConfig.setup_done = true; saveConfig();
     showView(appConfig.appearance.pin_expanded ? "expanded" : "capsule");
   });
 
@@ -209,7 +209,7 @@ async function renderProviders() {
         await saveConfig();
       }
       appConfig = await invoke("get_config");
-      localStorage.setItem("setupDone", "true");
+      appConfig.setup_done = true; saveConfig();
     });
   });
 }
