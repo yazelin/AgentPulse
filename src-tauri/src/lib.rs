@@ -306,27 +306,6 @@ pub fn run() {
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize::new(300.0, 46.0)));
 
-                // Windows DWM still paints a 1px border + drop shadow around
-                // transparent borderless windows even with decorations: false.
-                // Disable non-client area rendering to get a true borderless look.
-                #[cfg(target_os = "windows")]
-                {
-                    use windows::Win32::Graphics::Dwm::{
-                        DwmSetWindowAttribute, DWMNCRP_DISABLED, DWMWA_NCRENDERING_POLICY,
-                    };
-                    if let Ok(hwnd) = window.hwnd() {
-                        let policy: i32 = DWMNCRP_DISABLED.0;
-                        unsafe {
-                            let _ = DwmSetWindowAttribute(
-                                hwnd,
-                                DWMWA_NCRENDERING_POLICY,
-                                &policy as *const _ as *const _,
-                                std::mem::size_of_val(&policy) as u32,
-                            );
-                        }
-                    }
-                }
-
                 // Cursor position polling
                 let win = window.clone();
                 let was_inside = Arc::new(AtomicBool::new(false));
