@@ -171,11 +171,18 @@ async function init() {
 }
 
 // ─── Providers in settings ───
+const PROVIDER_ORDER = ["claude", "gemini", "codex", "copilot"];
+
 async function renderProviders() {
   const detected = await invoke("detect_installed_providers");
   const list = $("provider-list");
 
-  list.innerHTML = Object.entries(appConfig.providers).map(([id, p]) => {
+  // Fixed order instead of HashMap random order
+  const entries = PROVIDER_ORDER
+    .filter(id => appConfig.providers[id])
+    .map(id => [id, appConfig.providers[id]]);
+
+  list.innerHTML = entries.map(([id, p]) => {
     const found = detected[id] || false;
     const canEnable = !!p.settings_path;
     const checked = p.enabled ? "checked" : "";

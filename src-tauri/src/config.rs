@@ -70,7 +70,7 @@ fn default_providers() -> HashMap<String, ProviderConfig> {
     m.insert("codex".into(), ProviderConfig {
         enabled: false,
         name: "Codex CLI".into(),
-        settings_path: None,
+        settings_path: Some("~/.codex/hooks.json".into()),
     });
     m
 }

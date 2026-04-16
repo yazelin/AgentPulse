@@ -21,20 +21,26 @@ pub fn provider_needs_setup(provider_id: &str, config: &ProviderConfig) -> bool 
     };
 
     // Look for agentpulse marker in hooks
-    let hooks = match json.get("hooks") {
-        Some(Value::Object(h)) => h,
+    let hooks_obj = json.get("hooks").unwrap_or(&json);
+    let hooks = match hooks_obj {
+        Value::Object(h) => h,
         _ => return true,
     };
 
     for (_event, entries) in hooks {
         if let Value::Array(entries) = entries {
             for entry in entries {
-                if let Some(Value::Array(hook_list)) = entry.get("hooks") {
-                    for hook in hook_list {
-                        if let Some(cmd) = hook.get("command").and_then(|v| v.as_str()) {
-                            if cmd.contains("agentpulse") && cmd.contains(provider_id) {
-                                return false;
-                            }
+                // Check both nested hooks array and direct hook objects
+                let hook_list = if let Some(Value::Array(hl)) = entry.get("hooks") {
+                    hl.clone()
+                } else {
+                    vec![entry.clone()]
+                };
+
+                for hook in &hook_list {
+                    if let Some(cmd) = hook.get("command").and_then(|v| v.as_str()) {
+                        if cmd.contains("agentpulse") {
+                            return false;
                         }
                     }
                 }
@@ -157,10 +163,58 @@ fn install_gemini_hooks(path: &PathBuf, port: u16) -> Result<(), String> {
     Ok(())
 }
 
-/// Codex CLI: hooks in project-level hooks.json
-fn install_codex_hooks(_path: &PathBuf, _port: u16) -> Result<(), String> {
-    // TODO: Codex uses hooks.json files, implementation pending
-    Err("Codex CLI hook installation not yet implemented".into())
+/// Codex CLI: hooks in ~/.codex/hooks.json + enable feature flag in config.toml
+fn install_codex_hooks(path: &PathBuf, port: u16) -> Result<(), String> {
+    // 1. Enable codex_hooks feature flag in config.toml
+    let config_toml = path.parent()
+        .ok_or("Invalid hooks.json path")?
+        .join("config.toml");
+
+    if config_toml.exists() {
+        let mut content = std::fs::read_to_string(&config_toml).map_err(|e| e.to_string())?;
+        if !content.contains("codex_hooks") {
+            // Add [features] section with codex_hooks = true
+            if content.contains("[features]") {
+                content = content.replace("[features]", "[features]\ncodex_hooks = true");
+            } else {
+                content.push_str("\n[features]\ncodex_hooks = true\n");
+            }
+            std::fs::write(&config_toml, content).map_err(|e| e.to_string())?;
+            info!("Enabled codex_hooks feature flag in config.toml");
+        }
+    }
+
+    // 2. Write hooks.json
+    let curl_cmd = format!(
+        "curl -sf -m 2 -X POST -H 'Content-Type: application/json' \
+         -d \"$(cat)\" http://localhost:$(cat ~/.agentpulse/port 2>/dev/null || echo {port})/hook/codex || true"
+    );
+
+    let hooks_json = json!({
+        "hooks": {
+            "SessionStart": [{
+                "hooks": [{ "type": "command", "command": curl_cmd }]
+            }],
+            "UserPromptSubmit": [{
+                "hooks": [{ "type": "command", "command": curl_cmd }]
+            }],
+            "PreToolUse": [{
+                "matcher": "",
+                "hooks": [{ "type": "command", "command": curl_cmd }]
+            }],
+            "PostToolUse": [{
+                "matcher": "",
+                "hooks": [{ "type": "command", "command": curl_cmd }]
+            }],
+            "Stop": [{
+                "hooks": [{ "type": "command", "command": curl_cmd }]
+            }]
+        }
+    });
+
+    save_json(path, &hooks_json)?;
+    info!("Codex CLI hooks configured on port {port}");
+    Ok(())
 }
 
 fn load_or_create_json(path: &PathBuf) -> Result<Value, String> {

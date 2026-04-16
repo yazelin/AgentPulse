@@ -131,16 +131,19 @@ fn parse_provider(data: &[u8]) -> String {
 
 /// Normalize different CLI event names to a common set
 fn normalize_event_name(event: &mut HookEvent) {
+    // All three CLIs (Claude, Gemini, Codex) use the same event names after normalization
     let normalized = match event.hook_event_name.as_str() {
         // Gemini CLI events → standard names
-        "BeforeAgent" | "SessionStart" => "SessionStart",
-        "AfterAgent" | "SessionEnd" => "SessionEnd",
-        "BeforeTool" | "PreToolUse" => "PreToolUse",
-        "AfterTool" | "PostToolUse" => "PostToolUse",
-        "BeforeModel" | "UserPromptSubmit" => "UserPromptSubmit",
-        "AfterModel" | "Stop" => "Stop",
-        "Notification" => "Notification",
-        "PermissionRequest" => "PermissionRequest",
+        "BeforeAgent" => "SessionStart",
+        "AfterAgent" => "SessionEnd",
+        "BeforeTool" => "PreToolUse",
+        "AfterTool" => "PostToolUse",
+        "BeforeModel" => "UserPromptSubmit",
+        "AfterModel" => "Stop",
+        // Already standard names (Claude + Codex use these directly)
+        "SessionStart" | "SessionEnd" | "PreToolUse" | "PostToolUse" |
+        "UserPromptSubmit" | "Stop" | "PermissionRequest" |
+        "PostToolUseFailure" | "Notification" => event.hook_event_name.as_str(),
         other => other,
     };
     event.hook_event_name = normalized.to_string();
