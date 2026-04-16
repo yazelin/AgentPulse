@@ -31,6 +31,15 @@ fn select_session(manager: tauri::State<AppSessionManager>, id: String) {
 }
 
 #[tauri::command]
+fn remove_session(manager: tauri::State<AppSessionManager>, id: String) {
+    let mut m = manager.0.lock().unwrap();
+    m.sessions.remove(&id);
+    if m.active_session_id.as_deref() == Some(&id) {
+        m.active_session_id = m.sessions.keys().next().cloned();
+    }
+}
+
+#[tauri::command]
 fn get_config(config_state: tauri::State<AppConfigState>) -> AppConfig {
     config_state.0.lock().unwrap().clone()
 }
@@ -329,6 +338,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_state,
             select_session,
+            remove_session,
             get_config,
             save_app_config,
             detect_installed_providers,

@@ -54,7 +54,7 @@ function showView(view) {
 }
 
 // ─── Provider icon HTML ───
-function providerIconHtml(providerId, size = 14) {
+function providerIconHtml(providerId, size = 16) {
   const svg = PROVIDER_ICONS[providerId] || PROVIDER_ICONS.claude;
   const color = PROVIDER_COLORS[providerId] || "#888";
   return `<span class="provider-icon" style="width:${size}px;height:${size}px;color:${color}">${svg}</span>`;
@@ -248,17 +248,39 @@ async function saveConfig() {
 }
 
 // ─── State ───
-let lastJson = "";
+let lastStructureJson = ""; // tracks session add/remove/state changes (excludes timer)
+let lastState = null;
+
 async function refreshState() {
   try {
     const st = await invoke("get_state");
-    const j = JSON.stringify(st);
-    if (j === lastJson) return;
-    lastJson = j;
-    renderCapsule(st);
-    renderSessions(st);
-    if (currentView === "expanded") fitWindow();
+    lastState = st;
+
+    // Build a structure key that ignores formatted_time
+    const structureKey = JSON.stringify(st.sessions.map(s => s.id + s.state + s.provider + (s.last_prompt || "") + (s.cwd || "")));
+
+    if (structureKey !== lastStructureJson) {
+      // Sessions changed — full re-render
+      lastStructureJson = structureKey;
+      renderCapsule(st);
+      renderSessions(st);
+      if (currentView === "expanded") fitWindow();
+    } else {
+      // Only timers changed — update in place
+      renderCapsule(st);
+      updateTimers(st);
+    }
   } catch (e) {}
+}
+
+function updateTimers(st) {
+  // Update timer text without destroying DOM (preserves hover state)
+  st.sessions.forEach(s => {
+    const row = document.querySelector(`.session-row[data-id="${s.id}"] .session-time`);
+    if (row && s.is_active) {
+      row.textContent = s.formatted_time;
+    }
+  });
 }
 
 function renderCapsule(st) {
@@ -300,25 +322,41 @@ function renderSessions(st) {
     const sl = ({ working: "working", waiting_for_user: "waiting", stale: "stale" })[s.state] || "";
     const cwdShort = s.cwd ? s.cwd.replace(/^\/home\/[^/]+/, "~") : "";
     return `<div class="session-row${sel}" data-id="${s.id}">
-      <div class="session-provider-icon">${providerIconHtml(s.provider, 14)}</div>
+      <div class="session-provider-icon">${providerIconHtml(s.provider, 16)}</div>
       <div class="session-info">
         <div class="session-header">
           <span class="session-name">${esc(s.project_name)}</span>
-          ${sl ? `<span class="session-state-label ${sc}">${sl}</span>` : ""}
+          <span class="status-dot ${sc}"></span>${sl ? `<span class="session-state-label ${sc}">${sl}</span>` : ""}
         </div>
         ${cwdShort ? `<div class="session-cwd">${esc(cwdShort)}</div>` : ""}
         ${s.last_prompt ? `<div class="session-prompt">${esc(s.last_prompt)}</div>` : ""}
       </div>
       ${s.is_active ? `<span class="session-time">${s.formatted_time}</span>` : ""}
+      <button class="session-remove" data-rid="${s.id}" title="Remove">&times;</button>
     </div>`;
   }).join("");
 
   $("session-list").querySelectorAll(".session-row").forEach(r => {
-    r.addEventListener("click", () => {
+    // Show X on row hover
+    r.addEventListener("mouseenter", () => r.classList.add("hovered"));
+    r.addEventListener("mouseleave", () => r.classList.remove("hovered"));
+    // Click row to focus window
+    r.addEventListener("click", (e) => {
+      if (e.target.closest(".session-remove")) return;
       const sid = r.dataset.id;
       invoke("select_session", { id: sid });
       const session = st.sessions.find(s => s.id === sid);
       if (session) invoke("focus_session_window", { projectName: session.project_name, cwd: session.cwd || null }).catch(() => {});
+      refreshState();
+    });
+  });
+
+  $("session-list").querySelectorAll(".session-remove").forEach(btn => {
+    btn.addEventListener("mouseenter", () => { btn.style.color = "rgb(255,80,80)"; });
+    btn.addEventListener("mouseleave", () => { btn.style.color = ""; });
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      invoke("remove_session", { id: btn.dataset.rid });
       refreshState();
     });
   });

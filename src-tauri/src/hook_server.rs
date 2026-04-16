@@ -85,12 +85,17 @@ async fn handle_client(
 
     let response = if let Some(body_start) = find_body_start(data) {
         let body = &data[body_start..];
-        match serde_json::from_slice::<HookEvent>(body) {
-            Ok(mut event) => {
-                event.provider = provider;
+        match serde_json::from_slice::<crate::hook_event::RawHookEvent>(body) {
+            Ok(raw) => {
+                let mut event = raw.normalize(&provider);
 
-                // Normalize Gemini event names to our standard names
+                // Normalize event names across CLIs
                 normalize_event_name(&mut event);
+
+                // Generate session_id if missing (Gemini/Copilot may not send one)
+                if event.session_id.is_empty() {
+                    event.session_id = format!("{}-default", event.provider);
+                }
 
                 let _ = tx.send(event);
                 "HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}"
