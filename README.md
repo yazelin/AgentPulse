@@ -11,6 +11,13 @@ A cross-platform desktop app that brings **Dynamic Island-inspired** real-time m
 
 > Full-quality recording with audio: [`assets/demo.mp4`](assets/demo.mp4)
 
+<table>
+  <tr>
+    <td align="center"><img src="assets/capsule.png" alt="Capsule (collapsed)" /><br/><sub>Collapsed capsule</sub></td>
+    <td align="center"><img src="assets/expanded.png" alt="Expanded session list" width="260" /><br/><sub>Expanded session list</sub></td>
+  </tr>
+</table>
+
 ## Supported AI Coding Assistants
 
 | Provider | Hook Events | Config Location |
@@ -280,24 +287,17 @@ Three scripts for different workflows:
 
 ### Settings (Tabbed)
 
-**Providers tab:**
-- Toggle each CLI on/off (auto installs/removes hooks)
-- 📝 button per provider opens its CLI config file
-- Auto-detection: shows "detected" if CLI binary or config dir found
-- Disabled providers show "coming soon" if hook setup not implemented
+**Providers tab** — toggle each CLI on/off (auto installs/removes hooks), 📝 button opens that CLI's config file, auto-detection shows "detected" if the CLI binary or config dir is found, disabled providers show "coming soon" if hook setup isn't implemented yet.
 
-**Sounds tab:**
-- Toggle "Notification Sounds" (master switch for both completion and waiting clips)
-- Two sections below — **On Complete** and **On Waiting For User** — each with per-provider dropdown
-- Each dropdown rescans the sounds folder on click
-- ▶ preview button per row
-- 📁 opens sounds folder
+<p align="center"><img src="assets/settings-providers.png" alt="Providers tab" width="300" /></p>
 
-**Appearance tab:**
-- Light Theme toggle
-- Keep Expanded toggle
-- Accent Color (Purple, Cyan, Green, Orange, Pink)
-- Size (S / M / L)
+**Sounds tab** — master "Notification Sounds" toggle controls both clips. Below it, two sections (**On Complete** and **On Waiting For User**) each give one dropdown per provider. Each dropdown rescans the sounds folder on click. ▶ previews, 📁 opens the folder.
+
+<p align="center"><img src="assets/settings-sounds.png" alt="Sounds tab" width="300" /></p>
+
+**Appearance tab** — Light theme toggle, Keep Expanded toggle (pin the panel), accent color picker (Purple / Cyan / Green / Orange / Pink), size selector (S / M / L).
+
+<p align="center"><img src="assets/settings-appearance.png" alt="Appearance tab" width="300" /></p>
 
 ## Architecture
 
