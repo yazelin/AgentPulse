@@ -8,7 +8,15 @@
   <style>
     /* Demo-only: iframe body transparent + let app float naturally. */
     html, body { background: transparent !important; overflow: visible; }
-    #app { padding: 28px 24px 40px; display: flex; justify-content: center; }
+    /* Stack capsule + expanded panel vertically (default flex row would
+       place them side-by-side, breaking the "panel drops below" metaphor). */
+    #app {
+      padding: 28px 24px 40px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0;
+    }
   </style>
 </head>
 <body>
