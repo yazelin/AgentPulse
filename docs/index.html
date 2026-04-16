@@ -28,7 +28,21 @@
   </nav>
 
   <header class="hero">
-    <div class="container">
+    <div class="wallpaper" aria-hidden="true">
+      <div class="blob b1"></div>
+      <div class="blob b2"></div>
+      <div class="blob b3"></div>
+    </div>
+
+    <!-- Live, interactive AgentPulse running in an iframe. Hover the capsule,
+         click the gear, everything's real. Auto-cycles through session states
+         so there's something to see even before you interact. -->
+    <div class="live-demo" aria-label="Interactive AgentPulse demo">
+      <iframe src="demo-app/" title="AgentPulse interactive demo" loading="eager" scrolling="no"></iframe>
+      <div class="live-demo-hint">↑ hover the capsule · click ⚙ for settings</div>
+    </div>
+
+    <div class="container hero-text">
       <div class="tag">v0.2 — now cross-platform</div>
       <h1>Pulse for every<br/>AI coding assistant</h1>
       <p class="lede">
@@ -42,9 +56,6 @@
         <a href="https://github.com/yazelin/AgentPulse" target="_blank" rel="noopener" class="btn btn-secondary">
           View on GitHub
         </a>
-      </div>
-      <div class="hero-demo">
-        <img src="https://raw.githubusercontent.com/yazelin/AgentPulse/main/assets/demo.gif" alt="AgentPulse in action" />
       </div>
     </div>
   </header>
