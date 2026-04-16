@@ -8,14 +8,21 @@
   <style>
     /* Demo-only: iframe body transparent + let app float naturally. */
     html, body { background: transparent !important; overflow: visible; }
-    /* Stack capsule + expanded panel vertically (default flex row would
-       place them side-by-side, breaking the "panel drops below" metaphor). */
+    /* The real app runs inside a 300px-wide Tauri window, and relies on
+       that window size for the capsule / expanded panel widths. In the
+       iframe we don't have a fixed window width, so pin the width and
+       stack the children ourselves. */
     #app {
       padding: 28px 24px 40px;
       display: flex;
       flex-direction: column;
       align-items: center;
       gap: 0;
+    }
+    #capsule,
+    #view-expanded,
+    #view-settings {
+      width: 300px;
     }
   </style>
 </head>
