@@ -346,7 +346,7 @@ function renderSessions(st) {
       const sid = r.dataset.id;
       invoke("select_session", { id: sid });
       const session = st.sessions.find(s => s.id === sid);
-      if (session) invoke("focus_session_window", { projectName: session.project_name, cwd: session.cwd || null }).catch(() => {});
+      if (session) invoke("focus_session_window", { windowId: session.window_id || null, projectName: session.project_name, cwd: session.cwd || null }).catch(() => {});
       refreshState();
     });
   });

@@ -22,6 +22,7 @@ pub struct Session {
     pub cwd: Option<String>,
     pub last_tool_name: Option<String>,
     pub last_prompt: Option<String>,
+    pub window_id: Option<u64>,
 }
 
 impl Session {
@@ -36,6 +37,7 @@ impl Session {
             cwd,
             last_tool_name: None,
             last_prompt: None,
+            window_id: None,
         }
     }
 
@@ -112,6 +114,7 @@ pub struct SessionInfo {
     pub formatted_time: String,
     pub last_tool_name: Option<String>,
     pub last_prompt: Option<String>,
+    pub window_id: Option<u64>,
 }
 
 impl From<&Session> for SessionInfo {
@@ -126,6 +129,7 @@ impl From<&Session> for SessionInfo {
             formatted_time: s.formatted_time(),
             last_tool_name: s.last_tool_name.clone(),
             last_prompt: s.last_prompt.clone(),
+            window_id: s.window_id,
         }
     }
 }
@@ -143,7 +147,7 @@ impl SessionManager {
         }
     }
 
-    pub fn handle_event(&mut self, event: &HookEvent) -> bool {
+    pub fn handle_event(&mut self, event: &HookEvent, active_window_id: Option<u64>) -> bool {
         if event.hook_event_name == "SessionEnd" {
             self.sessions.remove(&event.session_id);
             if self.active_session_id.as_deref() == Some(&event.session_id) {
@@ -162,6 +166,11 @@ impl SessionManager {
                 }
                 Session::new(event.session_id.clone(), provider, event.cwd.clone())
             });
+
+        // Record the active window ID when event arrived
+        if let Some(wid) = active_window_id {
+            session.window_id = Some(wid);
+        }
 
         let was_working = session.state == SessionState::Working;
         session.handle_event(event);

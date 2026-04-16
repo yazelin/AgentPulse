@@ -91,38 +91,34 @@ fn get_server_port(port_state: tauri::State<ServerPort>) -> u16 {
     port_state.0
 }
 
-#[tauri::command]
-fn focus_session_window(project_name: String, cwd: Option<String>) {
-    // Terminal window class names to filter by
-    let terminal_classes = [
-        "gnome-terminal", "tilix", "terminator", "xterm", "konsole",
-        "alacritty", "kitty", "wezterm", "foot", "st", "urxvt",
-        "xfce4-terminal", "mate-terminal", "lxterminal",
-    ];
+/// Get the currently active/focused window ID via xdotool
+fn get_active_window_id() -> Option<u64> {
+    std::process::Command::new("xdotool")
+        .arg("getactivewindow")
+        .output()
+        .ok()
+        .and_then(|o| {
+            String::from_utf8_lossy(&o.stdout)
+                .trim()
+                .parse::<u64>()
+                .ok()
+        })
+}
 
+#[tauri::command]
+fn focus_session_window(window_id: Option<u64>, project_name: String, cwd: Option<String>) {
+    // Priority 1: use stored window ID (captured at event time)
+    if let Some(wid) = window_id {
+        let _ = std::process::Command::new("xdotool")
+            .args(["windowactivate", &wid.to_string()])
+            .spawn();
+        return;
+    }
+
+    // Priority 2: search by name in terminal windows
     let searches = vec![project_name, cwd.unwrap_or_default()];
     for term in &searches {
         if term.is_empty() { continue; }
-
-        // First try: search terminal windows only
-        for cls in &terminal_classes {
-            if let Ok(output) = std::process::Command::new("xdotool")
-                .args(["search", "--class", cls, "--name", term])
-                .output()
-            {
-                let stdout = String::from_utf8_lossy(&output.stdout);
-                if let Some(line) = stdout.lines().next() {
-                    if let Ok(wid) = line.trim().parse::<u64>() {
-                        let _ = std::process::Command::new("xdotool")
-                            .args(["windowactivate", &wid.to_string()])
-                            .spawn();
-                        return;
-                    }
-                }
-            }
-        }
-
-        // Fallback: any window with matching name
         if let Ok(output) = std::process::Command::new("xdotool")
             .args(["search", "--name", term])
             .output()
@@ -254,10 +250,13 @@ pub fn run() {
                         let h = handle.clone();
                         tokio::spawn(async move {
                             while let Some(event) = rx.recv().await {
+                                // Capture active window ID at event arrival time
+                                let active_wid = get_active_window_id();
+
                                 let mgr = h.state::<AppSessionManager>();
                                 let completed = {
                                     let mut m = mgr.0.lock().unwrap();
-                                    m.handle_event(&event)
+                                    m.handle_event(&event, active_wid)
                                 };
                                 let _ = h.emit("session-update", ());
                                 if completed {
