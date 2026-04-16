@@ -15,6 +15,7 @@ pub enum SessionState {
 #[derive(Debug, Clone, Serialize)]
 pub struct Session {
     pub id: String,
+    pub provider: String,
     pub state: SessionState,
     pub start_time: DateTime<Utc>,
     pub last_event_time: DateTime<Utc>,
@@ -24,10 +25,11 @@ pub struct Session {
 }
 
 impl Session {
-    pub fn new(id: String, cwd: Option<String>) -> Self {
+    pub fn new(id: String, provider: String, cwd: Option<String>) -> Self {
         let now = Utc::now();
         Self {
             id,
+            provider,
             state: SessionState::Idle,
             start_time: now,
             last_event_time: now,
@@ -102,6 +104,7 @@ impl Session {
 #[derive(Debug, Clone, Serialize)]
 pub struct SessionInfo {
     pub id: String,
+    pub provider: String,
     pub state: SessionState,
     pub project_name: String,
     pub cwd: Option<String>,
@@ -115,6 +118,7 @@ impl From<&Session> for SessionInfo {
     fn from(s: &Session) -> Self {
         Self {
             id: s.id.clone(),
+            provider: s.provider.clone(),
             state: s.state,
             project_name: s.project_name(),
             cwd: s.cwd.clone(),
@@ -148,6 +152,7 @@ impl SessionManager {
             return true;
         }
 
+        let provider = event.provider.clone();
         let session = self
             .sessions
             .entry(event.session_id.clone())
@@ -155,14 +160,13 @@ impl SessionManager {
                 if self.active_session_id.is_none() {
                     self.active_session_id = Some(event.session_id.clone());
                 }
-                Session::new(event.session_id.clone(), event.cwd.clone())
+                Session::new(event.session_id.clone(), provider, event.cwd.clone())
             });
 
         let was_working = session.state == SessionState::Working;
         session.handle_event(event);
         let now_idle = session.state == SessionState::Idle;
 
-        // Return true if a "stop" transition happened (for sound notification)
         was_working && now_idle
     }
 
@@ -196,7 +200,6 @@ impl SessionManager {
     }
 
     pub fn active_session(&self) -> Option<&Session> {
-        // Prefer user-selected if active
         if let Some(ref id) = self.active_session_id {
             if let Some(s) = self.sessions.get(id) {
                 if s.is_active() {
@@ -204,11 +207,9 @@ impl SessionManager {
                 }
             }
         }
-        // Find any active session
         if let Some(s) = self.sessions.values().find(|s| s.is_active()) {
             return Some(s);
         }
-        // Fall back to selected or first
         if let Some(ref id) = self.active_session_id {
             if let Some(s) = self.sessions.get(id) {
                 return Some(s);
@@ -231,17 +232,30 @@ impl SessionManager {
         self.sessions.values().filter(|s| s.is_active()).count()
     }
 
+    /// Get unique active provider IDs
+    pub fn active_providers(&self) -> Vec<String> {
+        let mut providers: Vec<String> = self.sessions.values()
+            .filter(|s| s.is_active())
+            .map(|s| s.provider.clone())
+            .collect();
+        providers.sort();
+        providers.dedup();
+        providers
+    }
+
     pub fn get_state(&self) -> AppState {
         let active = self.active_session().map(SessionInfo::from);
         let sessions = self.sorted_sessions();
         let session_count = self.sessions.len();
         let active_count = self.active_count();
+        let active_providers = self.active_providers();
 
         AppState {
             active_session: active,
             sessions,
             session_count,
             active_count,
+            active_providers,
         }
     }
 }
@@ -252,4 +266,5 @@ pub struct AppState {
     pub sessions: Vec<SessionInfo>,
     pub session_count: usize,
     pub active_count: usize,
+    pub active_providers: Vec<String>,
 }

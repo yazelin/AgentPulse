@@ -1,8 +1,10 @@
+mod config;
 mod hook_event;
 mod hook_server;
 mod hooks_configurator;
 mod session;
 
+use config::{AppConfig, load_config, save_config, detect_providers};
 use hook_server::HookServer;
 use log::info;
 use session::{AppState, SessionManager};
@@ -16,6 +18,7 @@ use tauri::{
 };
 
 struct AppSessionManager(Mutex<SessionManager>);
+struct AppConfigState(Mutex<AppConfig>);
 
 #[tauri::command]
 fn get_state(manager: tauri::State<AppSessionManager>) -> AppState {
@@ -28,13 +31,50 @@ fn select_session(manager: tauri::State<AppSessionManager>, id: String) {
 }
 
 #[tauri::command]
-fn check_hooks_setup() -> bool {
-    hooks_configurator::needs_setup()
+fn get_config(config_state: tauri::State<AppConfigState>) -> AppConfig {
+    config_state.0.lock().unwrap().clone()
 }
 
 #[tauri::command]
-fn install_hooks(port: u16) -> Result<(), String> {
-    hooks_configurator::install(port)
+fn save_app_config(config_state: tauri::State<AppConfigState>, new_config: AppConfig) -> Result<(), String> {
+    save_config(&new_config)?;
+    *config_state.0.lock().unwrap() = new_config;
+    Ok(())
+}
+
+#[tauri::command]
+fn detect_installed_providers() -> std::collections::HashMap<String, bool> {
+    detect_providers()
+}
+
+#[tauri::command]
+fn check_provider_setup(provider_id: String, config_state: tauri::State<AppConfigState>) -> bool {
+    let config = config_state.0.lock().unwrap();
+    if let Some(provider) = config.providers.get(&provider_id) {
+        hooks_configurator::provider_needs_setup(&provider_id, provider)
+    } else {
+        true
+    }
+}
+
+#[tauri::command]
+fn install_provider_hooks(
+    provider_id: String,
+    config_state: tauri::State<AppConfigState>,
+    port_state: tauri::State<ServerPort>,
+) -> Result<(), String> {
+    let mut config = config_state.0.lock().unwrap();
+    if let Some(provider) = config.providers.get(&provider_id) {
+        hooks_configurator::install_provider(&provider_id, provider, port_state.0)?;
+        // Mark as enabled
+        if let Some(p) = config.providers.get_mut(&provider_id) {
+            p.enabled = true;
+        }
+        save_config(&config).ok();
+        Ok(())
+    } else {
+        Err(format!("Unknown provider: {provider_id}"))
+    }
 }
 
 #[tauri::command]
@@ -43,38 +83,10 @@ fn get_server_port(port_state: tauri::State<ServerPort>) -> u16 {
 }
 
 #[tauri::command]
-fn reposition_window(window: tauri::WebviewWindow, position: String) {
-    let monitor = match window.primary_monitor() {
-        Ok(Some(m)) => m,
-        _ => return,
-    };
-    let scale = monitor.scale_factor();
-    let screen_w = monitor.size().width as f64 / scale;
-    let screen_h = monitor.size().height as f64 / scale;
-
-    let (x, y) = match position.as_str() {
-        "bottom-left" => (12.0, screen_h - 300.0),
-        "bottom-right" => (screen_w - 290.0 - 12.0, screen_h - 300.0),
-        _ => ((screen_w - 290.0) / 2.0, 8.0), // top-center
-    };
-
-    let _ = window.set_position(tauri::Position::Logical(
-        tauri::LogicalPosition::new(x, y),
-    ));
-}
-
-#[tauri::command]
 fn focus_session_window(project_name: String, cwd: Option<String>) {
-    // Try to find and activate a terminal window matching the session
-    // Search by project name first, then by cwd path
-    let searches = vec![
-        project_name.clone(),
-        cwd.clone().unwrap_or_default(),
-    ];
-
+    let searches = vec![project_name, cwd.unwrap_or_default()];
     for term in &searches {
         if term.is_empty() { continue; }
-        // xdotool search --name returns window IDs matching the title
         if let Ok(output) = std::process::Command::new("xdotool")
             .args(["search", "--name", term])
             .output()
@@ -82,7 +94,6 @@ fn focus_session_window(project_name: String, cwd: Option<String>) {
             let stdout = String::from_utf8_lossy(&output.stdout);
             for line in stdout.lines() {
                 if let Ok(wid) = line.trim().parse::<u64>() {
-                    // Activate the first matching window
                     let _ = std::process::Command::new("xdotool")
                         .args(["windowactivate", &wid.to_string()])
                         .spawn();
@@ -102,28 +113,13 @@ fn bounce_window(window: tauri::WebviewWindow) {
             let orig_y = pos.y as f64 / scale;
             let orig_x = pos.x as f64 / scale;
 
-            // Down
-            let _ = win.set_position(tauri::Position::Logical(
-                tauri::LogicalPosition::new(orig_x, orig_y + 8.0),
-            ));
+            let _ = win.set_position(tauri::Position::Logical(tauri::LogicalPosition::new(orig_x, orig_y + 8.0)));
             std::thread::sleep(std::time::Duration::from_millis(50));
-
-            // Overshoot up
-            let _ = win.set_position(tauri::Position::Logical(
-                tauri::LogicalPosition::new(orig_x, orig_y - 3.0),
-            ));
+            let _ = win.set_position(tauri::Position::Logical(tauri::LogicalPosition::new(orig_x, orig_y - 3.0)));
             std::thread::sleep(std::time::Duration::from_millis(40));
-
-            // Small bounce
-            let _ = win.set_position(tauri::Position::Logical(
-                tauri::LogicalPosition::new(orig_x, orig_y + 2.0),
-            ));
+            let _ = win.set_position(tauri::Position::Logical(tauri::LogicalPosition::new(orig_x, orig_y + 2.0)));
             std::thread::sleep(std::time::Duration::from_millis(30));
-
-            // Settle
-            let _ = win.set_position(tauri::Position::Logical(
-                tauri::LogicalPosition::new(orig_x, orig_y),
-            ));
+            let _ = win.set_position(tauri::Position::Logical(tauri::LogicalPosition::new(orig_x, orig_y)));
         }
     });
 }
@@ -132,34 +128,19 @@ fn bounce_window(window: tauri::WebviewWindow) {
 fn resize_window(window: tauri::WebviewWindow, width: f64, height: f64) {
     let _ = window.set_resizable(true);
     let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize::new(width, height)));
-    // Keep resizable so user can adjust width if they want
-    // Always on top
     let _ = window.set_always_on_top(true);
 }
 
 #[tauri::command]
 fn is_cursor_inside(window: tauri::WebviewWindow) -> bool {
-    let cursor = match window.cursor_position() {
-        Ok(c) => c,
-        Err(_) => return false,
-    };
-    let pos = match window.outer_position() {
-        Ok(p) => p,
-        Err(_) => return false,
-    };
-    let size = match window.outer_size() {
-        Ok(s) => s,
-        Err(_) => return false,
-    };
-
-    // Add small margin so it doesn't flicker at edges
+    let cursor = match window.cursor_position() { Ok(c) => c, Err(_) => return false };
+    let pos = match window.outer_position() { Ok(p) => p, Err(_) => return false };
+    let size = match window.outer_size() { Ok(s) => s, Err(_) => return false };
     let margin = 2.0;
-    let in_x = cursor.x >= (pos.x as f64 - margin)
-        && cursor.x <= (pos.x as f64 + size.width as f64 + margin);
-    let in_y = cursor.y >= (pos.y as f64 - margin)
-        && cursor.y <= (pos.y as f64 + size.height as f64 + margin);
-
-    in_x && in_y
+    cursor.x >= (pos.x as f64 - margin)
+        && cursor.x <= (pos.x as f64 + size.width as f64 + margin)
+        && cursor.y >= (pos.y as f64 - margin)
+        && cursor.y <= (pos.y as f64 + size.height as f64 + margin)
 }
 
 struct ServerPort(u16);
@@ -168,7 +149,6 @@ struct ServerPort(u16);
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
-            // Logging
             if cfg!(debug_assertions) {
                 app.handle().plugin(
                     tauri_plugin_log::Builder::default()
@@ -177,11 +157,16 @@ pub fn run() {
                 )?;
             }
 
-            // ── Window setup ──
+            // Load config
+            let config = load_config();
+            save_config(&config).ok(); // Ensure file exists with defaults
+            app.manage(AppConfigState(Mutex::new(config)));
+
+            // Window setup
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.set_size(tauri::Size::Logical(tauri::LogicalSize::new(300.0, 46.0)));
 
-                // ── Cursor position polling for hover detection ──
+                // Cursor position polling
                 let win = window.clone();
                 let was_inside = Arc::new(AtomicBool::new(false));
                 let was_inside_clone = was_inside.clone();
@@ -189,20 +174,18 @@ pub fn run() {
                 std::thread::spawn(move || {
                     loop {
                         std::thread::sleep(std::time::Duration::from_millis(50));
-
-                        // Cursor tracking
                         let inside = (|| {
                             let cursor = win.cursor_position().ok()?;
                             let pos = win.outer_position().ok()?;
                             let size = win.outer_size().ok()?;
                             let margin = 2.0;
-                            let in_x = cursor.x >= (pos.x as f64 - margin)
-                                && cursor.x <= (pos.x as f64 + size.width as f64 + margin);
-                            let in_y = cursor.y >= (pos.y as f64 - margin)
-                                && cursor.y <= (pos.y as f64 + size.height as f64 + margin);
-                            Some(in_x && in_y)
-                        })()
-                        .unwrap_or(false);
+                            Some(
+                                cursor.x >= (pos.x as f64 - margin)
+                                && cursor.x <= (pos.x as f64 + size.width as f64 + margin)
+                                && cursor.y >= (pos.y as f64 - margin)
+                                && cursor.y <= (pos.y as f64 + size.height as f64 + margin)
+                            )
+                        })().unwrap_or(false);
 
                         let was = was_inside_clone.load(Ordering::Relaxed);
                         if inside != was {
@@ -213,16 +196,14 @@ pub fn run() {
                                 let _ = win.emit("cursor-left", ());
                             }
                         }
-
                     }
                 });
             }
 
             // Session manager
-            let session_manager = SessionManager::new();
-            app.manage(AppSessionManager(Mutex::new(session_manager)));
+            app.manage(AppSessionManager(Mutex::new(SessionManager::new())));
 
-            // Start hook server
+            // Hook server
             let handle = app.handle().clone();
             let rt = tokio::runtime::Builder::new_multi_thread()
                 .enable_all()
@@ -271,7 +252,7 @@ pub fn run() {
 
             // System tray
             let show = MenuItemBuilder::with_id("show", "Show/Hide").build(app)?;
-            let quit = MenuItemBuilder::with_id("quit", "Quit ClaudePulse").build(app)?;
+            let quit = MenuItemBuilder::with_id("quit", "Quit AgentPulse").build(app)?;
             let menu = MenuBuilder::new(app)
                 .item(&show)
                 .separator()
@@ -283,7 +264,7 @@ pub fn run() {
 
             TrayIconBuilder::new()
                 .icon(icon)
-                .tooltip("ClaudePulse")
+                .tooltip("AgentPulse")
                 .menu(&menu)
                 .on_menu_event(move |app, event| match event.id().as_ref() {
                     "show" => {
@@ -291,7 +272,6 @@ pub fn run() {
                             if w.is_visible().unwrap_or(false) {
                                 let _ = w.hide();
                             } else {
-                                // Position at top-center of the current monitor
                                 if let Ok(Some(monitor)) = w.current_monitor() {
                                     let scale = monitor.scale_factor();
                                     let pos = monitor.position();
@@ -316,21 +296,23 @@ pub fn run() {
                 })
                 .build(app)?;
 
-            info!("ClaudePulse ready on port {port}");
+            info!("AgentPulse ready on port {port}");
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             get_state,
             select_session,
-            check_hooks_setup,
-            install_hooks,
+            get_config,
+            save_app_config,
+            detect_installed_providers,
+            check_provider_setup,
+            install_provider_hooks,
             get_server_port,
-            reposition_window,
             resize_window,
             bounce_window,
             focus_session_window,
             is_cursor_inside,
         ])
         .run(tauri::generate_context!())
-        .expect("error while running ClaudePulse");
+        .expect("error while running AgentPulse");
 }

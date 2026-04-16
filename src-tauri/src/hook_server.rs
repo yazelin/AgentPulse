@@ -18,11 +18,9 @@ impl HookServer {
         self.port
     }
 
-    /// Start the server, trying ports 19280-19289. Returns the event receiver.
     pub async fn start(
         &mut self,
     ) -> Result<mpsc::UnboundedReceiver<HookEvent>, ServerError> {
-        // Check if another instance is running
         if let Some(existing_port) = read_existing_port_file() {
             if is_port_listening(existing_port).await {
                 return Err(ServerError::AnotherInstanceRunning(existing_port));
@@ -36,7 +34,7 @@ impl HookServer {
                 Ok(listener) => {
                     self.port = candidate_port;
                     write_port_file(candidate_port);
-                    info!("ClaudePulse server listening on port {candidate_port}");
+                    info!("AgentPulse server listening on port {candidate_port}");
 
                     let tx = Arc::new(tx);
                     tokio::spawn(accept_loop(listener, tx));
@@ -81,10 +79,19 @@ async fn handle_client(
     };
 
     let data = &buf[..n];
+
+    // Parse provider from URL path: POST /hook/claude, /hook/gemini, etc.
+    let provider = parse_provider(data);
+
     let response = if let Some(body_start) = find_body_start(data) {
         let body = &data[body_start..];
         match serde_json::from_slice::<HookEvent>(body) {
-            Ok(event) => {
+            Ok(mut event) => {
+                event.provider = provider;
+
+                // Normalize Gemini event names to our standard names
+                normalize_event_name(&mut event);
+
                 let _ = tx.send(event);
                 "HTTP/1.1 200 OK\r\nContent-Length: 2\r\nConnection: close\r\n\r\n{}"
             }
@@ -99,6 +106,46 @@ async fn handle_client(
     let _ = stream.write_all(response.as_bytes()).await;
 }
 
+/// Parse provider from HTTP request line: "POST /hook/claude HTTP/1.1"
+fn parse_provider(data: &[u8]) -> String {
+    let request_line = data.split(|&b| b == b'\r' || b == b'\n')
+        .next()
+        .unwrap_or(b"");
+    let line = String::from_utf8_lossy(request_line);
+
+    // Extract path from "POST /hook/provider HTTP/1.1"
+    if let Some(path_start) = line.find("/hook/") {
+        let after = &line[path_start + 6..];
+        if let Some(end) = after.find(|c: char| c == ' ' || c == '/' || c == '?') {
+            return after[..end].to_string();
+        }
+        // No space found, take rest (shouldn't happen with valid HTTP)
+        if let Some(end) = after.find(' ') {
+            return after[..end].to_string();
+        }
+    }
+
+    // Fallback: /hook without provider = claude (backward compat)
+    "claude".to_string()
+}
+
+/// Normalize different CLI event names to a common set
+fn normalize_event_name(event: &mut HookEvent) {
+    let normalized = match event.hook_event_name.as_str() {
+        // Gemini CLI events → standard names
+        "BeforeAgent" | "SessionStart" => "SessionStart",
+        "AfterAgent" | "SessionEnd" => "SessionEnd",
+        "BeforeTool" | "PreToolUse" => "PreToolUse",
+        "AfterTool" | "PostToolUse" => "PostToolUse",
+        "BeforeModel" | "UserPromptSubmit" => "UserPromptSubmit",
+        "AfterModel" | "Stop" => "Stop",
+        "Notification" => "Notification",
+        "PermissionRequest" => "PermissionRequest",
+        other => other,
+    };
+    event.hook_event_name = normalized.to_string();
+}
+
 fn find_body_start(data: &[u8]) -> Option<usize> {
     let separator = b"\r\n\r\n";
     data.windows(4)
@@ -108,7 +155,7 @@ fn find_body_start(data: &[u8]) -> Option<usize> {
 
 fn read_existing_port_file() -> Option<u16> {
     let home = dirs::home_dir()?;
-    let path = home.join(".ccani").join("port");
+    let path = home.join(".agentpulse").join("port");
     let content = std::fs::read_to_string(path).ok()?;
     content.trim().parse().ok()
 }
@@ -127,7 +174,7 @@ async fn is_port_listening(port: u16) -> bool {
 
 fn write_port_file(port: u16) {
     if let Some(home) = dirs::home_dir() {
-        let dir = home.join(".ccani");
+        let dir = home.join(".agentpulse");
         let _ = std::fs::create_dir_all(&dir);
         let _ = std::fs::write(dir.join("port"), port.to_string());
     }
@@ -135,7 +182,7 @@ fn write_port_file(port: u16) {
 
 pub fn remove_port_file() {
     if let Some(home) = dirs::home_dir() {
-        let _ = std::fs::remove_file(home.join(".ccani").join("port"));
+        let _ = std::fs::remove_file(home.join(".agentpulse").join("port"));
     }
 }
 
@@ -150,7 +197,7 @@ impl std::fmt::Display for ServerError {
         match self {
             Self::NoAvailablePort => write!(f, "No available port in range 19280-19289"),
             Self::AnotherInstanceRunning(p) => {
-                write!(f, "Another ClaudePulse instance is running on port {p}")
+                write!(f, "Another AgentPulse instance is running on port {p}")
             }
         }
     }

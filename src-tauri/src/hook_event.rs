@@ -2,6 +2,9 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct HookEvent {
+    /// Provider ID (claude, gemini, codex, etc.) — set by server from URL path
+    #[serde(default)]
+    pub provider: String,
     #[serde(default)]
     pub session_id: String,
     #[serde(default)]

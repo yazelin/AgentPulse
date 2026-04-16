@@ -266,4 +266,33 @@ html, body {
 }
 .btn-quit:hover { background: rgba(255,255,255,0.1); color: var(--text-secondary); }
 
+/* ─── Provider icons ─── */
+.provider-icon { display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.provider-icon svg { width: 100%; height: 100%; }
+.capsule-icons { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.icon-sep { color: var(--text-muted); font-size: 10px; font-weight: 300; }
+
+.session-provider-icon { flex-shrink: 0; margin-top: 3px; }
+.session-dot { display: none; } /* replaced by provider icon */
+
+/* ─── Setup view ─── */
+.setup-header { padding: 14px 18px 12px; border-bottom: 0.5px solid var(--border); }
+.setup-body { padding: 16px 18px; display: flex; flex-direction: column; gap: 14px; }
+.setup-desc { font-size: 12px; color: var(--text-secondary); }
+.provider-list { display: flex; flex-direction: column; gap: 8px; }
+.provider-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; border-radius: 10px; cursor: pointer;
+  background: rgba(255,255,255,0.03);
+}
+.provider-item:hover { background: rgba(255,255,255,0.06); }
+.provider-item input[type="checkbox"] { accent-color: var(--accent); width: 16px; height: 16px; }
+.provider-name { font-size: 13px; font-weight: 500; flex: 1; }
+.provider-found { font-size: 10px; color: rgb(77,242,153); font-weight: 500; }
+
+/* Settings provider row */
+.provider-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; }
+.provider-name-sm { font-size: 12px; flex: 1; }
+.provider-status-sm { font-size: 10px; color: var(--text-dim); }
+
 .hidden { display: none !important; }
