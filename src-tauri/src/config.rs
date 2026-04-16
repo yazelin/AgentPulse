@@ -20,6 +20,8 @@ pub struct AppearanceConfig {
     pub text_size: String,
     #[serde(default)]
     pub pin_expanded: bool,
+    #[serde(default = "default_theme")]
+    pub theme: String,
     #[serde(default)]
     pub sound_enabled: bool,
     /// Per-provider sound mapping: { "claude": "claude.mp3", "gemini": "gemini.mp3" }
@@ -35,6 +37,7 @@ impl Default for AppearanceConfig {
         Self {
             accent_color: default_accent(),
             text_size: default_text_size(),
+            theme: default_theme(),
             pin_expanded: false,
             sound_enabled: false,
             provider_sounds: std::collections::HashMap::new(),
@@ -53,6 +56,7 @@ pub struct ProviderConfig {
 
 fn default_accent() -> String { "purple".into() }
 fn default_text_size() -> String { "medium".into() }
+fn default_theme() -> String { "dark".into() }
 
 fn default_providers() -> HashMap<String, ProviderConfig> {
     let mut m = HashMap::new();

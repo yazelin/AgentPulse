@@ -51,16 +51,10 @@ pub fn provider_needs_setup(_provider_id: &str, config: &ProviderConfig) -> bool
     true
 }
 
-/// Generate curl command that captures the terminal window ID via process tree
-/// Walks up the parent process tree to find a PID with an associated X11 window
+/// Generate curl command that POSTs the hook event JSON to AgentPulse
 fn curl_cmd(provider_id: &str, port: u16) -> String {
-    // Shell snippet: walk up $PPID chain, find first PID with xdotool-searchable window
-    let find_window = r#"$(p=$PPID; w=""; while [ "$p" -gt 1 ]; do w=$(xdotool search --pid $p 2>/dev/null | head -1); [ -n "$w" ] && break; p=$(awk '{print $4}' /proc/$p/stat 2>/dev/null); [ -z "$p" ] && break; done; echo "$w")"#;
-
     format!(
-        "curl -sf -m 2 -X POST \
-         -H 'Content-Type: application/json' \
-         -H \"X-Window-Id: {find_window}\" \
+        "curl -sf -m 2 -X POST -H 'Content-Type: application/json' \
          -d \"$(cat)\" \
          http://localhost:$(cat ~/.agentpulse/port 2>/dev/null || echo {port})/hook/{provider_id} || true"
     )

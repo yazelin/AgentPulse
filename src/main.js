@@ -71,8 +71,10 @@ async function init() {
 
   applyAccentColor(appConfig.appearance.accent_color);
   applyTextSize(appConfig.appearance.text_size);
+  applyTheme(appConfig.appearance.theme || "dark");
   $("toggle-sound").checked = appConfig.appearance.sound_enabled;
   $("toggle-pin").checked = appConfig.appearance.pin_expanded;
+  $("toggle-theme").checked = (appConfig.appearance.theme || "dark") === "light";
   if (appConfig.appearance.sound_enabled) $("sound-picker").classList.remove("hidden");
 
   // First launch → open settings automatically
@@ -100,7 +102,7 @@ async function init() {
     }
   });
 
-  // Collapse via cursor-left event + :hover fallback
+  // Collapse via cursor-left
   const collapseCallbackId = window.__TAURI_INTERNALS__.transformCallback(() => {
     if (currentView === "expanded" && !appConfig.appearance.pin_expanded) showView("capsule");
   });
@@ -110,6 +112,24 @@ async function init() {
     if (currentView !== "expanded" || appConfig.appearance.pin_expanded) return;
     if (!document.getElementById("app").matches(":hover")) showView("capsule");
   }, 200);
+
+  // Listen for tray → Open Settings
+  const openSettingsCb = window.__TAURI_INTERNALS__.transformCallback(async () => {
+    await renderProviders();
+    await renderProviderSounds();
+    showView("settings");
+  });
+  invoke("plugin:event|listen", { event: "open-settings", target: { kind: "Any" }, handler: openSettingsCb }).catch(() => {});
+
+  // Listen for tray → Toggle Theme
+  const toggleThemeCb = window.__TAURI_INTERNALS__.transformCallback(() => {
+    const newTheme = (appConfig.appearance.theme || "dark") === "dark" ? "light" : "dark";
+    appConfig.appearance.theme = newTheme;
+    applyTheme(newTheme);
+    $("toggle-theme").checked = newTheme === "light";
+    saveConfig();
+  });
+  invoke("plugin:event|listen", { event: "toggle-theme", target: { kind: "Any" }, handler: toggleThemeCb }).catch(() => {});
 
   // Re-register after delay
   setTimeout(() => {
@@ -137,7 +157,12 @@ async function init() {
   });
 
   // Settings
-  $("btn-settings").addEventListener("click", () => { renderProviders(); renderProviderSounds(); showView("settings"); });
+  $("btn-settings").addEventListener("click", async () => {
+    showView("settings");
+    await renderProviders();
+    await renderProviderSounds();
+    fitWindow(); // re-measure after async renders complete
+  });
   $("btn-close-settings").addEventListener("click", () => {
     appConfig.setup_done = true; saveConfig();
     showView(appConfig.appearance.pin_expanded ? "expanded" : "capsule");
@@ -147,6 +172,13 @@ async function init() {
     appConfig.appearance.pin_expanded = e.target.checked;
     $("btn-pin").classList.toggle("active", appConfig.appearance.pin_expanded);
     if (!appConfig.appearance.pin_expanded) showView("capsule"); else showView("expanded");
+    saveConfig();
+  });
+
+  $("toggle-theme").addEventListener("change", (e) => {
+    const theme = e.target.checked ? "light" : "dark";
+    appConfig.appearance.theme = theme;
+    applyTheme(theme);
     saveConfig();
   });
 
@@ -173,7 +205,21 @@ async function init() {
     saveConfig();
   }));
 
-  $("btn-quit").addEventListener("click", () => { try { window.close(); } catch (e) {} });
+  $("btn-github").addEventListener("click", () => {
+    invoke("open_url", { url: "https://github.com/yazelin/AgentPulse" }).catch(() => {});
+  });
+
+  // Settings tab switching
+  document.querySelectorAll(".settings-tab").forEach(tab => {
+    tab.addEventListener("click", () => {
+      const tabId = tab.dataset.tab;
+      document.querySelectorAll(".settings-tab").forEach(t => t.classList.toggle("active", t === tab));
+      document.querySelectorAll(".settings-tab-panel").forEach(p =>
+        p.classList.toggle("active", p.dataset.panel === tabId)
+      );
+      fitWindow();
+    });
+  });
 
   refreshState();
   setInterval(refreshState, 1000);
@@ -249,9 +295,10 @@ async function renderProviderSounds() {
 
   if (!appConfig.appearance.provider_sounds) appConfig.appearance.provider_sounds = {};
 
-  // Auto-match: if provider sound not set, find file starting with provider id
+  // Auto-match: only if user has never set this provider's sound
+  // Use "__none__" as explicit "no sound" marker (empty string would be ambiguous)
   PROVIDER_ORDER.forEach(pid => {
-    if (!appConfig.appearance.provider_sounds[pid]) {
+    if (!(pid in appConfig.appearance.provider_sounds)) {
       const match = sounds.find(s => s.toLowerCase().startsWith(pid + "."));
       if (match) appConfig.appearance.provider_sounds[pid] = match;
     }
@@ -261,18 +308,21 @@ async function renderProviderSounds() {
     .filter(pid => appConfig.providers[pid])
     .map(pid => {
       const p = appConfig.providers[pid];
-      const current = appConfig.appearance.provider_sounds[pid] || "(none)";
+      const stored = appConfig.appearance.provider_sounds[pid];
+      // Treat both "__none__" and "" as None
+      const isNone = stored === "__none__" || stored === "";
+      const display = isNone || !stored ? "(none)" : stored;
       return `<div class="provider-sound-row">
         ${providerIconHtml(pid, 16)}
         <span class="provider-sound-name">${esc(p.name)}</span>
         <div class="custom-dropdown sound-dd" data-provider="${pid}">
-          <div class="dropdown-selected">${esc(current)}</div>
+          <div class="dropdown-selected">${esc(display)}</div>
           <div class="dropdown-options hidden">
-            <div class="dropdown-option" data-value="">(none)</div>
-            ${sounds.map(s => `<div class="dropdown-option${s === current ? ' active' : ''}" data-value="${esc(s)}">${esc(s)}</div>`).join("")}
+            <div class="dropdown-option${isNone ? ' active' : ''}" data-value="__none__">(none)</div>
+            ${sounds.map(s => `<div class="dropdown-option${s === stored ? ' active' : ''}" data-value="${esc(s)}">${esc(s)}</div>`).join("")}
           </div>
         </div>
-        <button class="icon-btn play-btn" data-sound="${esc(current === "(none)" ? "" : current)}" title="Preview">
+        <button class="icon-btn play-btn" data-sound="${esc(isNone || !stored ? "" : stored)}" title="Preview">
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
         </button>
       </div>`;
@@ -284,25 +334,50 @@ async function renderProviderSounds() {
     const options = dd.querySelector(".dropdown-options");
     const pid = dd.dataset.provider;
 
-    selected.addEventListener("click", (e) => {
+    selected.addEventListener("click", async (e) => {
       e.stopPropagation();
       // Close all other dropdowns
       container.querySelectorAll(".dropdown-options").forEach(o => o !== options && o.classList.add("hidden"));
+      // Rescan sounds folder before opening
+      if (options.classList.contains("hidden")) {
+        const freshSounds = await invoke("list_sounds");
+        const stored = appConfig.appearance.provider_sounds[pid];
+        const isNone = stored === "__none__" || stored === "";
+        options.innerHTML =
+          `<div class="dropdown-option${isNone ? ' active' : ''}" data-value="__none__">(none)</div>` +
+          freshSounds.map(s => `<div class="dropdown-option${s === stored ? ' active' : ''}" data-value="${esc(s)}">${esc(s)}</div>`).join("");
+        // Rewire click handlers for new options
+        options.querySelectorAll(".dropdown-option").forEach(opt => {
+          opt.addEventListener("click", (ev) => {
+            ev.stopPropagation();
+            const val = opt.dataset.value;
+            const optIsNone = val === "__none__";
+            selected.textContent = optIsNone ? "(none)" : val;
+            appConfig.appearance.provider_sounds[pid] = val;
+            if (!optIsNone) playSound(val);
+            options.classList.add("hidden");
+            options.querySelectorAll(".dropdown-option").forEach(o => o.classList.toggle("active", o.dataset.value === val));
+            const playBtn = dd.parentElement.querySelector(".play-btn");
+            if (playBtn) playBtn.dataset.sound = optIsNone ? "" : val;
+            saveConfig();
+          });
+        });
+      }
       options.classList.toggle("hidden");
     });
 
     options.querySelectorAll(".dropdown-option").forEach(opt => {
       opt.addEventListener("click", (e) => {
         e.stopPropagation();
-        const val = opt.dataset.value;
-        selected.textContent = val || "(none)";
+        const val = opt.dataset.value; // "" never, either filename or "__none__"
+        const isNone = val === "__none__";
+        selected.textContent = isNone ? "(none)" : val;
         appConfig.appearance.provider_sounds[pid] = val;
-        if (val) playSound(val);
+        if (!isNone) playSound(val);
         options.classList.add("hidden");
         options.querySelectorAll(".dropdown-option").forEach(o => o.classList.toggle("active", o.dataset.value === val));
-        // Update play button
         const playBtn = dd.parentElement.querySelector(".play-btn");
-        if (playBtn) playBtn.dataset.sound = val;
+        if (playBtn) playBtn.dataset.sound = isNone ? "" : val;
         saveConfig();
       });
     });
@@ -373,11 +448,14 @@ function renderCapsule(st) {
     $("capsule-project").textContent = s.project_name;
     const stMap = { working: "Working...", waiting_for_user: "Waiting", stale: "Stale" };
     $("capsule-status").textContent = stMap[s.state] || "Idle";
+    const stClass = ({ working: "working", waiting_for_user: "waiting_for_user", stale: "stale" })[s.state] || "idle";
+    $("capsule-status").className = "capsule-status " + stClass;
     $("capsule-time").textContent = s.is_active ? s.formatted_time : "";
     $("capsule-time").style.display = s.is_active ? "" : "none";
   } else {
     $("capsule-project").textContent = "AgentPulse";
     $("capsule-status").textContent = "";
+    $("capsule-status").className = "capsule-status";
     $("capsule-time").style.display = "none";
   }
 
@@ -398,7 +476,7 @@ function renderSessions(st) {
   $("session-list").innerHTML = st.sessions.map(s => {
     const sel = s.id === aid ? " selected" : "";
     const sc = ({ working: "working", waiting_for_user: "waiting_for_user", stale: "stale" })[s.state] || "idle";
-    const sl = ({ working: "working", waiting_for_user: "waiting", stale: "stale" })[s.state] || "";
+    const sl = ({ working: "Working", waiting_for_user: "Waiting", stale: "Stale" })[s.state] || "";
     const cwdShort = s.cwd ? s.cwd.replace(/^\/home\/[^/]+/, "~") : "";
     return `<div class="session-row${sel}" data-id="${s.id}">
       <div class="session-provider-icon">${providerIconHtml(s.provider, 16)}</div>
@@ -422,10 +500,7 @@ function renderSessions(st) {
     // Click row to focus window
     r.addEventListener("click", (e) => {
       if (e.target.closest(".session-remove")) return;
-      const sid = r.dataset.id;
-      invoke("select_session", { id: sid });
-      const session = st.sessions.find(s => s.id === sid);
-      if (session) invoke("focus_session_window", { windowId: session.window_id || null, projectName: session.project_name, cwd: session.cwd || null }).catch(() => {});
+      invoke("select_session", { id: r.dataset.id });
       refreshState();
     });
   });
@@ -451,6 +526,10 @@ function applyTextSize(s) {
   document.querySelectorAll(".size-btn").forEach(b => b.classList.toggle("active", b.dataset.size === s));
 }
 
+function applyTheme(t) {
+  document.documentElement.setAttribute("data-theme", t);
+}
+
 // ─── Sounds ───
 async function playSound(name) {
   if (!name) return;
@@ -460,7 +539,7 @@ async function playSound(name) {
 /// Play sound for a provider — uses user-configured per-provider sound
 async function playProviderSound(provider) {
   const sound = appConfig.appearance.provider_sounds?.[provider];
-  if (sound) await playSound(sound);
+  if (sound && sound !== "__none__") await playSound(sound);
 }
 
 function esc(s) { const d = document.createElement("div"); d.textContent = s; return d.innerHTML; }

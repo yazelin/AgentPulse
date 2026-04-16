@@ -72,8 +72,29 @@ fn sounds_dir() -> std::path::PathBuf {
         .unwrap_or_else(|| dirs::home_dir().unwrap().join(".config"))
         .join("agentpulse")
         .join("sounds");
+    let created = !dir.exists();
     let _ = std::fs::create_dir_all(&dir);
+    if created {
+        // First-time setup: seed default sounds bundled with the app
+        seed_default_sounds(&dir);
+    }
     dir
+}
+
+/// Seed the sounds directory with bundled default sounds (only if not already present)
+fn seed_default_sounds(dir: &std::path::Path) {
+    let defaults: &[(&str, &[u8])] = &[
+        ("claude.mp3", include_bytes!("../../sounds/claude.mp3")),
+        ("gemini.mp3", include_bytes!("../../sounds/gemini.mp3")),
+        ("codex.mp3", include_bytes!("../../sounds/codex.mp3")),
+        ("copilot.mp3", include_bytes!("../../sounds/copilot.mp3")),
+    ];
+    for (name, bytes) in defaults {
+        let path = dir.join(name);
+        if !path.exists() {
+            let _ = std::fs::write(&path, bytes);
+        }
+    }
 }
 
 #[tauri::command]
@@ -120,6 +141,31 @@ fn play_sound_file(name: String) {
             }
         }
     });
+}
+
+#[tauri::command]
+fn open_url(url: String) -> Result<(), String> {
+    let opener = if cfg!(target_os = "macos") { "open" }
+                 else if cfg!(target_os = "windows") { "explorer" }
+                 else { "xdg-open" };
+    std::process::Command::new(opener)
+        .arg(url)
+        .spawn()
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+#[tauri::command]
+fn open_app_config() -> Result<(), String> {
+    let path = config::config_path();
+    let opener = if cfg!(target_os = "macos") { "open" }
+                 else if cfg!(target_os = "windows") { "explorer" }
+                 else { "xdg-open" };
+    std::process::Command::new(opener)
+        .arg(path.to_string_lossy().to_string())
+        .spawn()
+        .map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -198,36 +244,6 @@ fn get_server_port(port_state: tauri::State<ServerPort>) -> u16 {
     port_state.0
 }
 
-#[tauri::command]
-fn focus_session_window(window_id: Option<u64>, project_name: String, cwd: Option<String>) {
-    // Priority 1: use stored window ID (captured at event time)
-    if let Some(wid) = window_id {
-        let _ = std::process::Command::new("xdotool")
-            .args(["windowactivate", &wid.to_string()])
-            .spawn();
-        return;
-    }
-
-    // Priority 2: search by name in terminal windows
-    let searches = vec![project_name, cwd.unwrap_or_default()];
-    for term in &searches {
-        if term.is_empty() { continue; }
-        if let Ok(output) = std::process::Command::new("xdotool")
-            .args(["search", "--name", term])
-            .output()
-        {
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            if let Some(line) = stdout.lines().next() {
-                if let Ok(wid) = line.trim().parse::<u64>() {
-                    let _ = std::process::Command::new("xdotool")
-                        .args(["windowactivate", &wid.to_string()])
-                        .spawn();
-                    return;
-                }
-            }
-        }
-    }
-}
 
 #[tauri::command]
 fn bounce_window(window: tauri::WebviewWindow) {
@@ -343,13 +359,10 @@ pub fn run() {
                         let h = handle.clone();
                         tokio::spawn(async move {
                             while let Some(event) = rx.recv().await {
-                                // Window ID comes from X-Window-Id header (captured by curl at hook time)
-                                let wid = event.window_id;
-
                                 let mgr = h.state::<AppSessionManager>();
                                 let completed = {
                                     let mut m = mgr.0.lock().unwrap();
-                                    m.handle_event(&event, wid)
+                                    m.handle_event(&event)
                                 };
                                 let _ = h.emit("session-update", ());
                                 if completed {
@@ -380,10 +393,18 @@ pub fn run() {
 
             // System tray
             let show = MenuItemBuilder::with_id("show", "Show/Hide").build(app)?;
+            let settings = MenuItemBuilder::with_id("settings", "Open Settings").build(app)?;
+            let toggle_theme = MenuItemBuilder::with_id("toggle_theme", "Toggle Light/Dark").build(app)?;
+            let open_config = MenuItemBuilder::with_id("open_config", "Open Config File").build(app)?;
+            let restart = MenuItemBuilder::with_id("restart", "Restart").build(app)?;
             let quit = MenuItemBuilder::with_id("quit", "Quit AgentPulse").build(app)?;
             let menu = MenuBuilder::new(app)
                 .item(&show)
+                .item(&settings)
+                .item(&toggle_theme)
                 .separator()
+                .item(&open_config)
+                .item(&restart)
                 .item(&quit)
                 .build()?;
 
@@ -416,6 +437,36 @@ pub fn run() {
                             }
                         }
                     }
+                    "settings" => {
+                        if let Some(w) = app.get_webview_window("main") {
+                            let _ = w.show();
+                            let _ = w.set_always_on_top(true);
+                            let _ = w.set_focus();
+                            let _ = w.emit("open-settings", ());
+                        }
+                    }
+                    "toggle_theme" => {
+                        if let Some(w) = app.get_webview_window("main") {
+                            let _ = w.emit("toggle-theme", ());
+                        }
+                    }
+                    "open_config" => {
+                        let path = config::config_path();
+                        let opener = if cfg!(target_os = "macos") { "open" }
+                                     else if cfg!(target_os = "windows") { "explorer" }
+                                     else { "xdg-open" };
+                        let _ = std::process::Command::new(opener)
+                            .arg(path.to_string_lossy().to_string())
+                            .spawn();
+                    }
+                    "restart" => {
+                        if let Ok(exe) = std::env::current_exe() {
+                            let _ = std::process::Command::new(exe)
+                                .spawn();
+                        }
+                        hook_server::remove_port_file();
+                        app.exit(0);
+                    }
                     "quit" => {
                         hook_server::remove_port_file();
                         app.exit(0);
@@ -441,10 +492,11 @@ pub fn run() {
             list_sounds,
             play_sound_file,
             open_sounds_folder,
+            open_app_config,
+            open_url,
             get_server_port,
             resize_window,
             bounce_window,
-            focus_session_window,
             is_cursor_inside,
         ])
         .run(tauri::generate_context!())

@@ -1,15 +1,17 @@
 #!/bin/bash
-# Restart AgentPulse without rebuilding (frontend changes only)
-# Usage: ./reload.sh
+# Restart AgentPulse without rebuilding.
+# NOTE: Frontend files (src/*) are embedded in the binary at build time.
+#       If you changed src/, use ./dev.sh instead to rebuild.
+# This script only restarts the existing binary — useful for testing config
+# reset, session cleanup, or startup flow.
 
 set -e
 cd "$(dirname "$0")"
 
 echo "→ Killing running instance..."
-pkill -f "claude-pulse" 2>/dev/null || true
-sleep 0.5
+pkill -9 -f "claude-pulse" 2>/dev/null || true
+sleep 1
 
-# Try release binary first, fallback to debug
 if [ -f "src-tauri/target/release/claude-pulse" ]; then
   BIN="src-tauri/target/release/claude-pulse"
 elif [ -f "src-tauri/target/debug/claude-pulse" ]; then
