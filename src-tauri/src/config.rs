@@ -24,9 +24,12 @@ pub struct AppearanceConfig {
     pub theme: String,
     #[serde(default)]
     pub sound_enabled: bool,
-    /// Per-provider sound mapping: { "claude": "claude.mp3", "gemini": "gemini.mp3" }
+    /// Per-provider sound played on task completion.
     #[serde(default)]
     pub provider_sounds: std::collections::HashMap<String, String>,
+    /// Per-provider sound played when a session transitions to WaitingForUser.
+    #[serde(default)]
+    pub provider_waiting_sounds: std::collections::HashMap<String, String>,
     /// Legacy field, kept for backward compat
     #[serde(default)]
     pub sound_name: String,
@@ -41,6 +44,7 @@ impl Default for AppearanceConfig {
             pin_expanded: false,
             sound_enabled: false,
             provider_sounds: std::collections::HashMap::new(),
+            provider_waiting_sounds: std::collections::HashMap::new(),
             sound_name: String::new(),
         }
     }
@@ -61,7 +65,7 @@ fn default_theme() -> String { "dark".into() }
 fn default_providers() -> HashMap<String, ProviderConfig> {
     let mut m = HashMap::new();
     m.insert("claude".into(), ProviderConfig {
-        enabled: true,
+        enabled: false,
         name: "Claude Code".into(),
         settings_path: Some("~/.claude/settings.json".into()),
     });

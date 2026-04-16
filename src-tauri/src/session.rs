@@ -130,6 +130,15 @@ impl From<&Session> for SessionInfo {
     }
 }
 
+/// What meaningfully changed when a new hook event came in. Used to decide
+/// whether to fire a frontend notification sound.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SessionTransition {
+    None,
+    Completed,
+    StartedWaiting,
+}
+
 pub struct SessionManager {
     pub sessions: HashMap<String, Session>,
     pub active_session_id: Option<String>,
@@ -143,13 +152,13 @@ impl SessionManager {
         }
     }
 
-    pub fn handle_event(&mut self, event: &HookEvent) -> bool {
+    pub fn handle_event(&mut self, event: &HookEvent) -> SessionTransition {
         if event.hook_event_name == "SessionEnd" {
             self.sessions.remove(&event.session_id);
             if self.active_session_id.as_deref() == Some(&event.session_id) {
                 self.active_session_id = self.sessions.keys().next().cloned();
             }
-            return true;
+            return SessionTransition::Completed;
         }
 
         let provider = event.provider.clone();
@@ -163,11 +172,17 @@ impl SessionManager {
                 Session::new(event.session_id.clone(), provider, event.cwd.clone())
             });
 
-        let was_working = session.state == SessionState::Working;
+        let prev = session.state;
         session.handle_event(event);
-        let now_idle = session.state == SessionState::Idle;
+        let now = session.state;
 
-        was_working && now_idle
+        if prev == SessionState::Working && now == SessionState::Idle {
+            SessionTransition::Completed
+        } else if prev != SessionState::WaitingForUser && now == SessionState::WaitingForUser {
+            SessionTransition::StartedWaiting
+        } else {
+            SessionTransition::None
+        }
     }
 
     pub fn check_staleness(&mut self) {

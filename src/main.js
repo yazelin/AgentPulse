@@ -117,6 +117,7 @@ async function init() {
   const openSettingsCb = window.__TAURI_INTERNALS__.transformCallback(async () => {
     await renderProviders();
     await renderProviderSounds();
+    await renderProviderSounds("waiting");
     showView("settings");
   });
   invoke("plugin:event|listen", { event: "open-settings", target: { kind: "Any" }, handler: openSettingsCb }).catch(() => {});
@@ -138,13 +139,21 @@ async function init() {
     });
     invoke("plugin:event|listen", { event: "cursor-left", target: { kind: "Any" }, handler: cb2 }).catch(() => {});
 
-    // Listen for task-completed → play provider-specific sound (only if enabled)
+    // Listen for task-completed → play provider-specific completion sound
     const soundCb = window.__TAURI_INTERNALS__.transformCallback((evt) => {
       if (!appConfig.appearance.sound_enabled) return;
       const provider = (evt && evt.payload) || "claude";
-      playProviderSound(provider);
+      playProviderSound(provider, "completion");
     });
     invoke("plugin:event|listen", { event: "task-completed", target: { kind: "Any" }, handler: soundCb }).catch(() => {});
+
+    // Listen for task-waiting → play provider-specific waiting sound
+    const waitingCb = window.__TAURI_INTERNALS__.transformCallback((evt) => {
+      if (!appConfig.appearance.sound_enabled) return;
+      const provider = (evt && evt.payload) || "claude";
+      playProviderSound(provider, "waiting");
+    });
+    invoke("plugin:event|listen", { event: "task-waiting", target: { kind: "Any" }, handler: waitingCb }).catch(() => {});
   }, 2000);
 
   // Pin
@@ -161,6 +170,7 @@ async function init() {
     showView("settings");
     await renderProviders();
     await renderProviderSounds();
+    await renderProviderSounds("waiting");
     fitWindow(); // re-measure after async renders complete
   });
   $("btn-close-settings").addEventListener("click", () => {
@@ -190,6 +200,7 @@ async function init() {
   });
 
   await renderProviderSounds();
+  await renderProviderSounds("waiting");
   $("btn-open-sounds").addEventListener("click", () => invoke("open_sounds_folder").catch(() => {}));
 
   document.querySelectorAll(".color-dot").forEach(d => d.addEventListener("click", () => {
@@ -283,8 +294,15 @@ async function renderProviders() {
 }
 
 // ─── Dropdown ───
-async function renderProviderSounds() {
-  const container = $("provider-sounds-list");
+// kind: "completion" (container #provider-sounds-list, config.provider_sounds)
+//     | "waiting"    (container #provider-waiting-sounds-list, config.provider_waiting_sounds)
+async function renderProviderSounds(kind = "completion") {
+  const configKey = kind === "waiting" ? "provider_waiting_sounds" : "provider_sounds";
+  const containerId = kind === "waiting" ? "provider-waiting-sounds-list" : "provider-sounds-list";
+  const filenameSuffix = kind === "waiting" ? "-waiting." : ".";
+  const container = $(containerId);
+  if (!container) return;
+
   let sounds = [];
   try { sounds = await invoke("list_sounds"); } catch(e) {}
 
@@ -293,14 +311,14 @@ async function renderProviderSounds() {
     return;
   }
 
-  if (!appConfig.appearance.provider_sounds) appConfig.appearance.provider_sounds = {};
+  if (!appConfig.appearance[configKey]) appConfig.appearance[configKey] = {};
 
   // Auto-match: only if user has never set this provider's sound
   // Use "__none__" as explicit "no sound" marker (empty string would be ambiguous)
   PROVIDER_ORDER.forEach(pid => {
-    if (!(pid in appConfig.appearance.provider_sounds)) {
-      const match = sounds.find(s => s.toLowerCase().startsWith(pid + "."));
-      if (match) appConfig.appearance.provider_sounds[pid] = match;
+    if (!(pid in appConfig.appearance[configKey])) {
+      const match = sounds.find(s => s.toLowerCase().startsWith(pid + filenameSuffix));
+      if (match) appConfig.appearance[configKey][pid] = match;
     }
   });
 
@@ -308,7 +326,7 @@ async function renderProviderSounds() {
     .filter(pid => appConfig.providers[pid])
     .map(pid => {
       const p = appConfig.providers[pid];
-      const stored = appConfig.appearance.provider_sounds[pid];
+      const stored = appConfig.appearance[configKey][pid];
       // Treat both "__none__" and "" as None
       const isNone = stored === "__none__" || stored === "";
       const display = isNone || !stored ? "(none)" : stored;
@@ -345,7 +363,7 @@ async function renderProviderSounds() {
       // Rescan sounds folder before opening
       if (options.classList.contains("hidden")) {
         const freshSounds = await invoke("list_sounds");
-        const stored = appConfig.appearance.provider_sounds[pid];
+        const stored = appConfig.appearance[configKey][pid];
         const isNone = stored === "__none__" || stored === "";
         options.innerHTML =
           `<div class="dropdown-option${isNone ? ' active' : ''}" data-value="__none__">(none)</div>` +
@@ -357,7 +375,7 @@ async function renderProviderSounds() {
             const val = opt.dataset.value;
             const optIsNone = val === "__none__";
             selected.textContent = optIsNone ? "(none)" : val;
-            appConfig.appearance.provider_sounds[pid] = val;
+            appConfig.appearance[configKey][pid] = val;
             if (!optIsNone) playSound(val);
             options.classList.add("hidden");
             options.querySelectorAll(".dropdown-option").forEach(o => o.classList.toggle("active", o.dataset.value === val));
@@ -376,7 +394,7 @@ async function renderProviderSounds() {
         const val = opt.dataset.value; // "" never, either filename or "__none__"
         const isNone = val === "__none__";
         selected.textContent = isNone ? "(none)" : val;
-        appConfig.appearance.provider_sounds[pid] = val;
+        appConfig.appearance[configKey][pid] = val;
         if (!isNone) playSound(val);
         options.classList.add("hidden");
         options.querySelectorAll(".dropdown-option").forEach(o => o.classList.toggle("active", o.dataset.value === val));
@@ -394,11 +412,13 @@ async function renderProviderSounds() {
       if (btn.dataset.sound) playSound(btn.dataset.sound);
     });
   });
-
-  document.addEventListener("click", () => {
-    container.querySelectorAll(".dropdown-options").forEach(o => o.classList.add("hidden"));
-  });
 }
+
+// One global click handler closes all sound dropdowns across both sections
+document.addEventListener("click", () => {
+  document.querySelectorAll("#provider-sounds-list .dropdown-options, #provider-waiting-sounds-list .dropdown-options")
+    .forEach(o => o.classList.add("hidden"));
+});
 
 // ─── Config save ───
 async function saveConfig() {
@@ -545,8 +565,10 @@ async function playSound(name) {
 }
 
 /// Play sound for a provider — uses user-configured per-provider sound
-async function playProviderSound(provider) {
-  const sound = appConfig.appearance.provider_sounds?.[provider];
+/// kind: "completion" (provider_sounds) | "waiting" (provider_waiting_sounds)
+async function playProviderSound(provider, kind = "completion") {
+  const key = kind === "waiting" ? "provider_waiting_sounds" : "provider_sounds";
+  const sound = appConfig.appearance[key]?.[provider];
   if (sound && sound !== "__none__") await playSound(sound);
 }
 

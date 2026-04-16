@@ -72,12 +72,10 @@ fn sounds_dir() -> std::path::PathBuf {
         .unwrap_or_else(|| dirs::home_dir().unwrap().join(".config"))
         .join("agentpulse")
         .join("sounds");
-    let created = !dir.exists();
     let _ = std::fs::create_dir_all(&dir);
-    if created {
-        // First-time setup: seed default sounds bundled with the app
-        seed_default_sounds(&dir);
-    }
+    // seed_default_sounds skips files that already exist, so this is a
+    // no-op for users who already have all the defaults.
+    seed_default_sounds(&dir);
     dir
 }
 
@@ -88,6 +86,10 @@ fn seed_default_sounds(dir: &std::path::Path) {
         ("gemini.mp3", include_bytes!("../../sounds/gemini.mp3")),
         ("codex.mp3", include_bytes!("../../sounds/codex.mp3")),
         ("copilot.mp3", include_bytes!("../../sounds/copilot.mp3")),
+        ("claude-waiting.mp3", include_bytes!("../../sounds/claude-waiting.mp3")),
+        ("gemini-waiting.mp3", include_bytes!("../../sounds/gemini-waiting.mp3")),
+        ("codex-waiting.mp3", include_bytes!("../../sounds/codex-waiting.mp3")),
+        ("copilot-waiting.mp3", include_bytes!("../../sounds/copilot-waiting.mp3")),
     ];
     for (name, bytes) in defaults {
         let path = dir.join(name);
@@ -287,7 +289,23 @@ struct ServerPort(u16);
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let mut builder = tauri::Builder::default();
+
+    // Single-instance: second launches bring the running window to front
+    // and exit. Without this, a duplicate launch leaves a dead tray icon
+    // (the HTTP server refuses the port but Tauri still spawns the UI).
+    #[cfg(desktop)]
+    {
+        builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.show();
+                let _ = window.unminimize();
+                let _ = window.set_focus();
+            }
+        }));
+    }
+
+    builder
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
@@ -359,13 +377,19 @@ pub fn run() {
                         tokio::spawn(async move {
                             while let Some(event) = rx.recv().await {
                                 let mgr = h.state::<AppSessionManager>();
-                                let completed = {
+                                let transition = {
                                     let mut m = mgr.0.lock().unwrap();
                                     m.handle_event(&event)
                                 };
                                 let _ = h.emit("session-update", ());
-                                if completed {
-                                    let _ = h.emit("task-completed", event.provider.clone());
+                                match transition {
+                                    session::SessionTransition::Completed => {
+                                        let _ = h.emit("task-completed", event.provider.clone());
+                                    }
+                                    session::SessionTransition::StartedWaiting => {
+                                        let _ = h.emit("task-waiting", event.provider.clone());
+                                    }
+                                    session::SessionTransition::None => {}
                                 }
                             }
                         });
