@@ -90,6 +90,16 @@ fragile; a native binary invocation works the same on every shell.
 - **Codex**: kebab-case → PascalCase (`user-prompt-submit` → `UserPromptSubmit`)
 - **Copilot**: similar variations
 
+**Gotcha — only map true end-of-turn events to `Stop`.** The session
+state machine emits `Completed` on `Working → Idle`, which plays the
+completion sound. Any event that fires mid-turn (Gemini's `AfterModel`
+on each model call, Copilot's `subagentStop` on child-agent completion)
+must *not* map to `Stop`: the mid-turn transition steals the completion
+sound, and the real end-of-turn signal (`AfterAgent` / `agentStop`) is
+then swallowed because state is already `Idle`. These fall through to
+the state machine's no-op `_` arm so state stays `Working`. v0.2.2
+mapped both incorrectly; fixed in v0.2.3.
+
 ### Field aliasing (hook_event.rs)
 
 Different CLIs use different field names for the same thing:
@@ -104,8 +114,21 @@ Different CLIs use different field names for the same thing:
 - **Codex** — `~/.codex/hooks.json` + enables `codex_hooks = true` in `~/.codex/config.toml`
 - **Copilot** — `~/.copilot/config.json`: uses `bash` field (not `command`)
 
+**Gotcha — Gemini on Windows needs the `&` call operator.** Gemini CLI
+hardcodes `powershell.exe -NoProfile -Command` for hook execution, and
+PowerShell parses `"path\to\exe.exe" arg` as a bare string expression
+(ParserError: UnexpectedToken), not a call. `install_gemini_hooks` uses
+`hook_cmd_powershell()` which prepends `& ` on `cfg!(windows)`. Do not
+add the prefix to other providers: Claude defaults to cmd.exe, Codex is
+disabled on Windows upstream, Copilot uses the `bash` field. If a future
+provider goes through PowerShell, route it through the same helper.
+
 Install process **auto-removes** any existing AgentPulse hooks before writing
-new ones (identified by `agentpulse` substring in the command/bash field).
+new ones. The dedup marker is `agent-pulse-hook` (the sidecar filename,
+matches on every platform). v0.2.0–v0.2.1 looked for `agentpulse` (no
+hyphen), which never matched once the sidecar replaced the curl one-liner,
+so re-enabling a provider used to accumulate duplicate hook entries.
+Fixed in v0.2.2 — if you rename the sidecar, update the `MARKER` constant.
 
 All providers default to `enabled: false`. User explicitly toggles each one
 on — that flips the config *and* writes the hook. Previously Claude defaulted
