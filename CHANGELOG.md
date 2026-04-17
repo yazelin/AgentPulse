@@ -7,6 +7,30 @@ description from the matching `## [vX.Y.Z]` section via `release.yml`.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.2.3] — 2026-04-17
+
+Fixes spurious mid-turn completion sounds and swallowed end-of-turn
+signals on Gemini CLI and GitHub Copilot.
+
+### Fixed
+
+- **Gemini: completion sound firing mid-turn** — `AfterModel` was mapped
+  to `Stop`, but Gemini's `BeforeModel`/`AfterModel` pair fires once per
+  model call, and a single turn typically runs 2+ model calls when tools
+  are used. The mapping caused a `Completed` transition after every
+  model call (playing the task-completed sound mid-turn), and then the
+  real `AfterAgent` at end-of-turn was swallowed because state was
+  already `Idle`. `AfterModel` now falls through to the state machine's
+  no-op arm; `AfterAgent` alone carries the per-turn completion signal.
+- **Copilot: `subagentStop` spuriously emitting completion** — same shape
+  as the Gemini bug. A user prompt that spawns a subagent would fire
+  `subagentStop` when the child finished (mid-turn), flipping state to
+  `Idle` and firing the completion sound; the parent's `agentStop` would
+  then be swallowed. `subagentStop` no longer maps to `Stop` — only
+  `agentStop` does.
+
+[v0.2.3]: https://github.com/yazelin/AgentPulse/releases/tag/v0.2.3
+
 ## [v0.2.2] — 2026-04-17
 
 Hotfix for Gemini CLI hook execution on Windows.

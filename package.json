@@ -1,6 +1,6 @@
 {
   "name": "agent-pulse",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "description": "Cross-platform Dynamic Island monitor for AI coding assistant sessions",
   "scripts": {
     "tauri": "cargo tauri",

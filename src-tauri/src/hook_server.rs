@@ -137,22 +137,34 @@ fn parse_provider(data: &[u8]) -> String {
 /// Normalize different CLI event names to a common set
 fn normalize_event_name(event: &mut HookEvent) {
     let normalized = match event.hook_event_name.as_str() {
-        // Gemini CLI events → standard names
-        // Note: Gemini's "Agent" is per-turn, not the whole session,
-        // so AfterAgent is task completion (Stop), not SessionEnd
+        // Gemini CLI events → standard names.
+        // AfterAgent is Gemini's per-turn completion signal (Agent = one
+        // turn, not the whole session), so it maps to Stop.
+        // AfterModel intentionally does NOT map to Stop: BeforeModel/
+        // AfterModel pair fires once per model call, and a single turn
+        // typically runs 2+ model calls when tools are used. Mapping it
+        // to Stop would emit spurious `Completed` mid-turn, and the real
+        // AfterAgent at end-of-turn would get swallowed because state is
+        // already Idle. AfterModel falls through to the state machine's
+        // no-op arm so state stays Working until AfterAgent closes it.
         "BeforeAgent" => "SessionStart",
         "AfterAgent" => "Stop",
         "BeforeTool" => "PreToolUse",
         "AfterTool" => "PostToolUse",
         "BeforeModel" => "UserPromptSubmit",
-        "AfterModel" => "Stop",
         // GitHub Copilot CLI events (camelCase) → standard names
         "sessionStart" => "SessionStart",
         "sessionEnd" => "SessionEnd",
         "preToolUse" => "PreToolUse",
         "postToolUse" => "PostToolUse",
         "userPromptSubmitted" => "UserPromptSubmit",
-        "agentStop" | "subagentStop" => "Stop",
+        // agentStop = main agent finished (real completion).
+        // subagentStop is intentionally NOT mapped to Stop: a single user
+        // prompt can spawn a subagent, and subagentStop fires when the
+        // child finishes while the parent is still working. Mapping it to
+        // Stop would emit a mid-turn Completed and the parent's agentStop
+        // would be swallowed (state already Idle). Fall through to no-op.
+        "agentStop" => "Stop",
         "errorOccurred" => "Notification",
         // Already standard names (Claude + Codex use PascalCase)
         "SessionStart" | "SessionEnd" | "PreToolUse" | "PostToolUse" |
