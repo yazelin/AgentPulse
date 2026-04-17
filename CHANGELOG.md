@@ -7,6 +7,27 @@ description from the matching `## [vX.Y.Z]` section via `release.yml`.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.2.2] — 2026-04-17
+
+Hotfix for Gemini CLI hook execution on Windows.
+
+### Fixed
+
+- **Gemini CLI hooks on Windows** — Gemini hardcodes
+  `powershell.exe -NoProfile -Command` for hook execution, and PowerShell
+  parses `"path\to\exe.exe" arg` as a bare string expression (ParserError:
+  UnexpectedToken at the argument) rather than a call. The Gemini hook
+  command is now prefixed with PowerShell's `&` call operator on Windows
+  only; cmd.exe and bash on other platforms still see the unchanged form.
+- **Hook dedup marker** — `provider_needs_setup` / `remove_provider` looked
+  for the substring `"agentpulse"` to identify previously installed
+  AgentPulse hooks, but the v0.2 sidecar command contains
+  `agent-pulse-hook` (hyphenated). The marker never matched, so toggling a
+  provider on/off accumulated duplicate hook entries. Marker now matches
+  the sidecar filename across shells and OSes.
+
+[v0.2.2]: https://github.com/yazelin/AgentPulse/releases/tag/v0.2.2
+
 ## [v0.2.1] — 2026-04-16
 
 First public release. Multi-provider hook monitoring with a sidecar-binary

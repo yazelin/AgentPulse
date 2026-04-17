@@ -39,7 +39,7 @@ pub fn provider_needs_setup(_provider_id: &str, config: &ProviderConfig) -> bool
 
                 for hook in &hook_list {
                     if let Some(cmd) = hook.get("command").and_then(|v| v.as_str()) {
-                        if cmd.contains("agentpulse") {
+                        if cmd.contains(MARKER) {
                             return false;
                         }
                     }
@@ -50,6 +50,12 @@ pub fn provider_needs_setup(_provider_id: &str, config: &ProviderConfig) -> bool
 
     true
 }
+
+// Substring that uniquely identifies AgentPulse-installed hooks. Matches
+// the sidecar binary filename across all shells + OSes (agent-pulse-hook
+// on unix, agent-pulse-hook.exe on windows). Previously "agentpulse" —
+// which never matched anything, because the binary name is hyphenated.
+const MARKER: &str = "agent-pulse-hook";
 
 /// Absolute path to the sidecar binary, expected next to the main exe.
 /// Shipping a binary (not a shell one-liner) keeps hook commands
@@ -70,6 +76,19 @@ fn sidecar_path() -> PathBuf {
 /// itself, so no shell substitution is needed.
 fn hook_cmd(provider_id: &str) -> String {
     format!("\"{}\" {provider_id}", sidecar_path().display())
+}
+
+/// Gemini CLI on Windows hardcodes `powershell.exe -NoProfile -Command`
+/// for hook execution. PowerShell parses `"path\to\exe.exe" arg` as a bare
+/// string expression (ParserError: UnexpectedToken at `arg`), not a call —
+/// the `&` call operator is required. cmd.exe and bash don't accept the
+/// prefix, so only emit it on Windows.
+fn hook_cmd_powershell(provider_id: &str) -> String {
+    if cfg!(windows) {
+        format!("& {}", hook_cmd(provider_id))
+    } else {
+        hook_cmd(provider_id)
+    }
 }
 
 /// Remove only AgentPulse hooks (those containing "agentpulse" string) from a provider's config
@@ -100,7 +119,7 @@ pub fn remove_provider(provider_id: &str, config: &ProviderConfig) -> Result<(),
                     !hook_list.iter().any(|h| {
                         let cmd_str = h.get("command").and_then(|v| v.as_str()).unwrap_or("");
                         let bash_str = h.get("bash").and_then(|v| v.as_str()).unwrap_or("");
-                        cmd_str.contains("agentpulse") || bash_str.contains("agentpulse")
+                        cmd_str.contains(MARKER) || bash_str.contains(MARKER)
                     })
                 });
             }
@@ -186,7 +205,7 @@ fn install_gemini_hooks(path: &PathBuf) -> Result<(), String> {
         .entry("hooks")
         .or_insert_with(|| json!({}));
 
-    let cmd = hook_cmd("gemini");
+    let cmd = hook_cmd_powershell("gemini");
 
     let events = [
         "SessionStart", "SessionEnd",
