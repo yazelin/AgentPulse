@@ -20,7 +20,7 @@ if [ "$MODE" = "release" ]; then
   # IMPORTANT: must use `cargo tauri build`, NOT `cargo build --release`.
   # Plain cargo build skips frontend embedding, so the webview falls back to
   # devUrl (localhost:1420) and shows "Could not connect to localhost".
-  cargo tauri build --no-bundle
+  npm run build -- --no-bundle
   BIN="src-tauri/target/release/agent-pulse"
 else
   echo "→ Building debug binary..."
@@ -29,6 +29,7 @@ else
 fi
 
 echo "→ Launching $BIN..."
-"$BIN" &
+# GDK_BACKEND=x11 keeps always-on-top working on GNOME Wayland (XWayland path)
+GDK_BACKEND=x11 "$BIN" &
 echo "→ PID: $!"
 echo "Done."

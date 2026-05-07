@@ -16,4 +16,4 @@ pkill -f "serve.*1420" 2>/dev/null || true
 sleep 1
 
 echo "→ Starting cargo tauri dev (will spawn file server on :1420)..."
-cargo tauri dev
+GDK_BACKEND=x11 npm run dev

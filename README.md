@@ -224,7 +224,6 @@ Latest release: [Releases](../../releases/latest).
 
 - [Rust](https://rustup.rs/) 1.77+
 - [Node.js](https://nodejs.org/) 18+
-- [Tauri CLI](https://v2.tauri.app/start/prerequisites/): `cargo install tauri-cli`
 - **Linux** dependencies:
   ```bash
   sudo apt install libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libasound2-dev
@@ -236,7 +235,8 @@ Latest release: [Releases](../../releases/latest).
 ```bash
 git clone https://github.com/yazelin/AgentPulse.git
 cd AgentPulse
-cargo tauri build
+npm install        # installs @tauri-apps/cli — no global cargo install needed
+npm run build
 ```
 
 Output:
@@ -266,7 +266,7 @@ Three scripts for different workflows:
 | `./dev.sh` | Need rebuild | Need rebuild |
 | `./reload.sh` | No effect (cached in old binary) | No effect |
 
-`watch.sh` runs `cargo tauri dev` which serves frontend from `http://localhost:1420` via `npx serve`.
+`watch.sh` runs `npm run dev` (`tauri dev` via the bundled `@tauri-apps/cli`) which serves frontend from `http://localhost:1420` via `npx serve`. On Linux it also sets `GDK_BACKEND=x11` to keep the always-on-top hint working under GNOME Wayland.
 
 ## Usage
 
@@ -505,6 +505,7 @@ AgentPulse/
 | `mouseleave` unreliable on transparent windows | Tauri `cursor-left` event from Rust polling thread |
 | `<select>` dropdown uses system native styling | Custom div-based dropdown |
 | CSS `transition` / `animation` causes pixel ghosting | Most transitions removed; bounce via Rust `set_position` thread |
+| GNOME Wayland ignores always-on-top for regular app windows | `watch.sh` / `dev.sh` set `GDK_BACKEND=x11` to run under XWayland where `_NET_WM_STATE_ABOVE` is respected |
 | `transform: translateZ(0)` creates black compositing layers | Not used |
 | DOM re-render destroys hover state | Smart re-render: structural changes only; timers update in-place |
 | Browser CSP blocks blob URLs and local files | Audio plays via Rust `rodio` (no browser audio at all) |

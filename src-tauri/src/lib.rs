@@ -356,6 +356,18 @@ pub fn run() {
                         }
                     }
                 });
+
+                // GNOME/Mutter resets _NET_WM_STATE_ABOVE when focus leaves the
+                // window. Re-assert immediately on focus-lost so it never sinks.
+                #[cfg(target_os = "linux")]
+                {
+                    let win = window.clone();
+                    window.on_window_event(move |event| {
+                        if let tauri::WindowEvent::Focused(false) = event {
+                            let _ = win.set_always_on_top(true);
+                        }
+                    });
+                }
             }
 
             // Session manager
