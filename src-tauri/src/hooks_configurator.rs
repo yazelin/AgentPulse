@@ -243,22 +243,19 @@ fn install_gemini_hooks(path: &PathBuf) -> Result<(), String> {
 
 /// Codex CLI: hooks in ~/.codex/hooks.json + enable feature flag in config.toml
 fn install_codex_hooks(path: &PathBuf) -> Result<(), String> {
-    // 1. Enable codex_hooks feature flag in config.toml
+    // 1. Enable hooks feature flag in config.toml. Codex v0.129 renamed
+    //    `codex_hooks` to `hooks`; the old name still works but prints a
+    //    deprecation warning on every launch, so migrate eagerly.
     let config_toml = path.parent()
         .ok_or("Invalid hooks.json path")?
         .join("config.toml");
 
     if config_toml.exists() {
-        let mut content = std::fs::read_to_string(&config_toml).map_err(|e| e.to_string())?;
-        if !content.contains("codex_hooks") {
-            // Add [features] section with codex_hooks = true
-            if content.contains("[features]") {
-                content = content.replace("[features]", "[features]\ncodex_hooks = true");
-            } else {
-                content.push_str("\n[features]\ncodex_hooks = true\n");
-            }
-            std::fs::write(&config_toml, content).map_err(|e| e.to_string())?;
-            info!("Enabled codex_hooks feature flag in config.toml");
+        let original = std::fs::read_to_string(&config_toml).map_err(|e| e.to_string())?;
+        let updated = ensure_codex_hooks_feature(&original);
+        if updated != original {
+            std::fs::write(&config_toml, updated).map_err(|e| e.to_string())?;
+            info!("Updated [features].hooks in Codex config.toml");
         }
     }
 
@@ -331,6 +328,63 @@ fn install_copilot_hooks(path: &PathBuf) -> Result<(), String> {
     Ok(())
 }
 
+/// Ensure `[features].hooks = true` exists in Codex config.toml, migrating
+/// any pre-v0.129 `codex_hooks = true` line in place. We avoid pulling in
+/// a TOML serializer so user comments and formatting survive.
+fn ensure_codex_hooks_feature(original: &str) -> String {
+    let key_of = |line: &str| -> Option<String> {
+        let trimmed = line.trim_start();
+        if trimmed.starts_with('#') {
+            return None;
+        }
+        let key = trimmed.split('=').next()?.trim();
+        if key == "codex_hooks" || key == "hooks" {
+            Some(key.to_string())
+        } else {
+            None
+        }
+    };
+
+    let mut seen = false;
+    let mut lines: Vec<String> = original
+        .lines()
+        .filter_map(|line| {
+            match key_of(line) {
+                Some(_) if seen => None, // drop duplicate flag lines
+                Some(key) => {
+                    seen = true;
+                    if key == "codex_hooks" {
+                        let lead_len = line.len() - line.trim_start().len();
+                        Some(format!("{}hooks = true", &line[..lead_len]))
+                    } else {
+                        Some(line.to_string())
+                    }
+                }
+                None => Some(line.to_string()),
+            }
+        })
+        .collect();
+
+    if !seen {
+        // Insert into existing [features] table or append a new one
+        if let Some(idx) = lines.iter().position(|l| l.trim() == "[features]") {
+            lines.insert(idx + 1, "hooks = true".to_string());
+        } else {
+            if !lines.last().map_or(true, |l| l.is_empty()) {
+                lines.push(String::new());
+            }
+            lines.push("[features]".to_string());
+            lines.push("hooks = true".to_string());
+        }
+    }
+
+    let mut out = lines.join("\n");
+    if original.ends_with('\n') && !out.ends_with('\n') {
+        out.push('\n');
+    }
+    out
+}
+
 fn load_or_create_json(path: &PathBuf) -> Result<Value, String> {
     if path.exists() {
         let data = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
@@ -347,4 +401,55 @@ fn save_json(path: &PathBuf, value: &Value) -> Result<(), String> {
     let formatted = serde_json::to_string_pretty(value).map_err(|e| e.to_string())?;
     std::fs::write(path, formatted).map_err(|e| e.to_string())?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ensure_codex_hooks_feature;
+
+    #[test]
+    fn migrates_deprecated_codex_hooks_in_place() {
+        let input = "model_provider = \"azure\"\n\n[features]\ncodex_hooks = true\n";
+        let out = ensure_codex_hooks_feature(input);
+        assert!(out.contains("hooks = true"));
+        assert!(!out.contains("codex_hooks"));
+        assert!(out.starts_with("model_provider"));
+    }
+
+    #[test]
+    fn leaves_existing_hooks_flag_alone() {
+        let input = "[features]\nhooks = true\n";
+        assert_eq!(ensure_codex_hooks_feature(input), input);
+    }
+
+    #[test]
+    fn appends_features_table_when_missing() {
+        let input = "model_provider = \"azure\"\n";
+        let out = ensure_codex_hooks_feature(input);
+        assert!(out.contains("[features]\nhooks = true"));
+    }
+
+    #[test]
+    fn inserts_into_existing_features_table() {
+        let input = "[features]\nweb_search = true\n";
+        let out = ensure_codex_hooks_feature(input);
+        assert!(out.contains("[features]\nhooks = true\nweb_search = true"));
+    }
+
+    #[test]
+    fn ignores_commented_lines_and_unrelated_keys() {
+        let input = "# codex_hooks = true\n[features]\nhooks_dir = \"x\"\n";
+        let out = ensure_codex_hooks_feature(input);
+        assert!(out.contains("[features]\nhooks = true\nhooks_dir = \"x\""));
+        assert!(out.contains("# codex_hooks = true"));
+    }
+
+    #[test]
+    fn dedupes_when_both_flags_present() {
+        let input = "[features]\ncodex_hooks = true\nhooks = true\n";
+        let out = ensure_codex_hooks_feature(input);
+        let count = out.matches("hooks = true").count();
+        assert_eq!(count, 1, "expected one hooks line, got: {out}");
+        assert!(!out.contains("codex_hooks"));
+    }
 }

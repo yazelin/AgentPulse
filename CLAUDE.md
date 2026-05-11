@@ -111,7 +111,14 @@ Different CLIs use different field names for the same thing:
 
 - **Claude** — `~/.claude/settings.json`: `hooks: {EventName: [{hooks: [{type, command}]}]}`
 - **Gemini** — `~/.gemini/settings.json`: same shape as Claude, different event names
-- **Codex** — `~/.codex/hooks.json` + enables `codex_hooks = true` in `~/.codex/config.toml`
+- **Codex** — `~/.codex/hooks.json` + enables `hooks = true` in `[features]` of
+  `~/.codex/config.toml` (Codex v0.129+ renamed the old `codex_hooks` flag;
+  `install_codex_hooks` migrates pre-0.129 configs in place via
+  `ensure_codex_hooks_feature` to silence the deprecation warning). Codex
+  v0.129 also added a per-hook trust hash — first launch after install shows
+  "N hooks need review", and the user must run `/hooks` once to approve.
+  We don't auto-write `[hooks.state]` because the trust hash is a normalized
+  TOML serialization computed by Codex internals; reproducing it is brittle.
 - **Copilot** — `~/.copilot/config.json`: uses `bash` field (not `command`)
 
 **Gotcha — Gemini on Windows needs the `&` call operator.** Gemini CLI

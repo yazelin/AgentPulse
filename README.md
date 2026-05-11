@@ -396,9 +396,9 @@ The sidecar reads the stdin body, resolves the live port from `~/.agentpulse/por
 And in `config.toml`:
 ```toml
 [features]
-codex_hooks = true
+hooks = true
 ```
-(Codex hooks are behind a feature flag in the current beta. OpenAI currently disables hook execution on Windows; the sidecar command is still written but won't fire until they re-enable it.)
+(Codex hooks are behind a feature flag. The flag was renamed from `codex_hooks` to `hooks` in Codex v0.129; AgentPulse migrates older configs automatically. Codex v0.129+ also requires per-hook trust approval — after enabling Codex in AgentPulse, run `codex` once and approve the listed hooks via `/hooks`. OpenAI currently disables hook execution on Windows; the sidecar command is still written but won't fire until they re-enable it.)
 
 **GitHub Copilot CLI** (`~/.copilot/config.json` — uses `bash` field):
 ```json
