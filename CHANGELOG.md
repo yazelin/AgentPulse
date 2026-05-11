@@ -7,6 +7,42 @@ description from the matching `## [vX.Y.Z]` section via `release.yml`.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.2.4] — 2026-05-11
+
+Compat fixes for the Codex v0.129+ feature-flag rename and for
+always-on-top under GNOME Wayland.
+
+### Fixed
+
+- **Codex `[features].codex_hooks` deprecation warning** — Codex v0.129
+  renamed the flag to `[features].hooks` and prints a deprecation banner
+  on every launch under the old name. `install_codex_hooks` now writes
+  the new key, and `ensure_codex_hooks_feature` migrates existing
+  configs in place: line-by-line patching that preserves user
+  comments / indent / formatting, dedupes if both flags coexist, and
+  ignores commented or unrelated keys. Covered by 6 unit tests.
+- **Always-on-top under GNOME Wayland** — GNOME / Mutter resets
+  `_NET_WM_STATE_ABOVE` whenever the window loses focus, so the capsule
+  drifted behind other windows after every focus change. Now re-asserted
+  on `Focused(false)` on Linux. `dev.sh` and `watch.sh` also force
+  `GDK_BACKEND=x11` so the XWayland path (which respects the hint
+  reliably) is used during development.
+
+### Changed
+
+- **Switched to npm-installed Tauri CLI** — `@tauri-apps/cli` is now a
+  devDependency; no global `cargo install tauri-cli` required for
+  contributors. `default-run = "agent-pulse"` added to `Cargo.toml` so
+  bare `cargo run` no longer errors on the two-binary workspace.
+
+### Note
+
+Codex v0.129+ also added per-hook trust review. After enabling Codex in
+AgentPulse on a fresh machine, run `codex` once and approve the listed
+hooks via `/hooks` — they only need to be approved once per machine.
+
+[v0.2.4]: https://github.com/yazelin/AgentPulse/releases/tag/v0.2.4
+
 ## [v0.2.3] — 2026-04-17
 
 Fixes spurious mid-turn completion sounds and swallowed end-of-turn
