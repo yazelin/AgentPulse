@@ -7,6 +7,39 @@ description from the matching `## [vX.Y.Z]` section via `release.yml`.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.3.0] — 2026-05-28
+
+Mori body-interface integration + Linux launch polish.
+
+### Added
+
+- **Body-interface bridge for [Mori](https://github.com/yazelin/mori-desktop)** —
+  the existing hook server now exposes GET `/health`, `/manifest`, `/sessions`,
+  and an SSE `/events` stream that re-broadcasts session transitions
+  (`StartedWaiting` → `cue.waiting_input`, `Completed` → `cue.done`) in the
+  Mori event envelope. On startup AgentPulse writes a body manifest to
+  `~/.mori/body-parts/mori.agent-pulse/manifest.json` (with the live port) so
+  Mori Desktop's body registry discovers it automatically. Detection pipeline
+  (per-CLI hooks → `SessionManager`) is unchanged; only an outward read
+  surface is added. Zero new dependencies.
+
+### Changed
+
+- **Linux scripts default to native Wayland** — `dev.sh` and `watch.sh` no
+  longer hard-force `GDK_BACKEND=x11`. Native Wayland avoids XWayland's
+  transparent-window ghosting on hybrid GPUs. Opt back into XWayland with
+  `AGENTPULSE_GDK_X11=1 ./dev.sh` if always-on-top sinks on your compositor.
+- **Tauri CLI fallback in scripts** — `./dev.sh` / `./watch.sh` now resolve a
+  Tauri CLI before building: prefer the local `node_modules/.bin/tauri`
+  (`@tauri-apps/cli`), else fall back to the installed `cargo-tauri`. Scripts
+  work whether or not `npm install` has been run.
+- **Collapse bounce reverted to real window movement** — the v0.2.3 → v0.2.4
+  CSS-transform bounce ghosted transparent windows on some compositors (the
+  translated content's vacated area wasn't repainted). Restored the original
+  Rust `bounce_window` (`set_position`), which goes through the WM's damage
+  path cleanly. The CSS keyframe remains in `styles.css` as a dormant
+  fallback.
+
 ## [v0.2.4] — 2026-05-11
 
 Compat fixes for the Codex v0.129+ feature-flag rename and for
