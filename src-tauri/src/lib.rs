@@ -8,7 +8,9 @@ mod session;
 use config::{AppConfig, load_config, save_config, detect_providers};
 use hook_server::HookServer;
 use log::info;
+use mori_bridge::MoriEvent;
 use session::{AppState, SessionManager};
+use tokio::sync::{broadcast, watch};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use tauri::{
@@ -381,20 +383,36 @@ pub fn run() {
                 .build()
                 .expect("Failed to create tokio runtime");
 
+            let (cue_tx, _cue_rx0) = broadcast::channel::<MoriEvent>(256);
+            let (snap_tx, snap_rx) = watch::channel(session::SessionManager::new().get_state());
             let port = rt.block_on(async {
                 let mut server = HookServer::new();
-                match server.start().await {
+                match server.start(cue_tx.clone(), snap_rx.clone()).await {
                     Ok(mut rx) => {
                         let port = server.port();
                         let h = handle.clone();
+                        let cue_tx = cue_tx.clone();
                         tokio::spawn(async move {
                             while let Some(event) = rx.recv().await {
                                 let mgr = h.state::<AppSessionManager>();
-                                let transition = {
+                                let (transition, snapshot) = {
                                     let mut m = mgr.0.lock().unwrap();
-                                    m.handle_event(&event)
+                                    let t = m.handle_event(&event);
+                                    (t, m.get_state())
                                 };
+                                let _ = snap_tx.send(snapshot);
                                 let _ = h.emit("session-update", ());
+                                // Mori cue broadcast (for SSE subscribers, e.g. mori-desktop).
+                                // Millisecond precision so two transitions in the same second
+                                // (same session) don't collide on event_id.
+                                let now = chrono::Utc::now()
+                                    .to_rfc3339_opts(chrono::SecondsFormat::Millis, true);
+                                if let Some(ev) = MoriEvent::from_transition(
+                                    transition, &event.provider, &event.session_id, &now,
+                                ) {
+                                    let _ = cue_tx.send(ev);
+                                }
+                                // Existing: AgentPulse's own capsule sounds (unchanged).
                                 match transition {
                                     session::SessionTransition::Completed => {
                                         let _ = h.emit("task-completed", event.provider.clone());
@@ -408,15 +426,15 @@ pub fn run() {
                         });
                         port
                     }
-                    Err(e) => {
-                        log::error!("Failed to start server: {e}");
-                        0
-                    }
+                    Err(e) => { log::error!("Failed to start server: {e}"); 0 }
                 }
             });
 
             std::mem::forget(rt);
             app.manage(ServerPort(port));
+            if port != 0 {
+                mori_bridge::write_manifest(port);
+            }
 
             // Staleness checker
             let handle2 = app.handle().clone();
