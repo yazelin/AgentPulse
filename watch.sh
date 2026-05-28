@@ -15,7 +15,17 @@ pkill -9 -x agent-pulse 2>/dev/null || true
 pkill -f "serve.*1420" 2>/dev/null || true
 sleep 1
 
-echo "→ Starting cargo tauri dev (will spawn file server on :1420)..."
+# Resolve a Tauri CLI: prefer the local npm one (@tauri-apps/cli), else cargo-tauri.
+if [ -x node_modules/.bin/tauri ]; then
+  TAURI="npm run tauri --"
+elif command -v cargo-tauri >/dev/null 2>&1; then
+  TAURI="cargo tauri"
+else
+  echo "✗ No Tauri CLI found. Run 'npm install' or 'cargo install tauri-cli'." >&2
+  exit 1
+fi
+
+echo "→ Starting tauri dev (will spawn file server on :1420)..."
 # Default native Wayland (no XWayland ghosting); AGENTPULSE_GDK_X11=1 to force x11.
 [ -n "$AGENTPULSE_GDK_X11" ] && export GDK_BACKEND=x11
-npm run dev
+$TAURI dev
