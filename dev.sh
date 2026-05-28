@@ -11,6 +11,17 @@ cd "$(dirname "$0")"
 
 MODE="${1:-debug}"
 
+# Resolve a Tauri CLI: prefer the local npm one (@tauri-apps/cli), else cargo-tauri.
+# Lets the script work whether or not `npm install` has been run on this machine.
+if [ -x node_modules/.bin/tauri ]; then
+  TAURI="npm run tauri --"
+elif command -v cargo-tauri >/dev/null 2>&1; then
+  TAURI="cargo tauri"
+else
+  echo "✗ No Tauri CLI found. Run 'npm install' (gets @tauri-apps/cli) or 'cargo install tauri-cli'." >&2
+  exit 1
+fi
+
 echo "→ Killing any running instance..."
 pkill -9 -x agent-pulse 2>/dev/null || true
 sleep 1
@@ -20,7 +31,7 @@ if [ "$MODE" = "release" ]; then
   # IMPORTANT: must use `cargo tauri build`, NOT `cargo build --release`.
   # Plain cargo build skips frontend embedding, so the webview falls back to
   # devUrl (localhost:1420) and shows "Could not connect to localhost".
-  npm run build -- --no-bundle
+  $TAURI build --no-bundle
   BIN="src-tauri/target/release/agent-pulse"
 else
   echo "→ Building debug binary..."
