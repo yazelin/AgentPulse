@@ -2,6 +2,7 @@ mod config;
 mod hook_event;
 mod hook_server;
 mod hooks_configurator;
+mod mori_bridge;
 mod session;
 
 use config::{AppConfig, load_config, save_config, detect_providers};
