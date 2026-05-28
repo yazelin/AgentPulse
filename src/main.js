@@ -49,14 +49,15 @@ function showView(view) {
   fitWindow();
   if (view === "capsule" && wasExpanded) {
     collapsedAt = Date.now();
-    // CSS-based bounce (replaces the Rust bounce_window shim). Brief
-    // forced reflow lets the animation re-fire if we're still in the
-    // "bouncing" state from a prior collapse.
-    const cap = $("capsule");
-    cap.classList.remove("bouncing");
-    void cap.offsetWidth;
-    cap.classList.add("bouncing");
-    setTimeout(() => cap.classList.remove("bouncing"), 300);
+    // Real window-position bounce via Rust `bounce_window` (set_position).
+    // Restored from the pre-CSS implementation: gives a real "landed" feel
+    // rather than just content-transform. Trade-off: programmatic rapid
+    // set_position can ghost on some compositors with ARGB transparent
+    // windows (mouse drag does not, because that goes through the WM's
+    // move protocol with proper damage events). If ghosting returns, the
+    // CSS .bouncing class + capsuleCollapseBounce keyframe in styles.css
+    // is the dormant fallback — swap back by toggling .bouncing instead.
+    invoke("bounce_window");
   }
 }
 
