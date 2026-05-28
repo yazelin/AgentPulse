@@ -16,4 +16,6 @@ pkill -f "serve.*1420" 2>/dev/null || true
 sleep 1
 
 echo "→ Starting cargo tauri dev (will spawn file server on :1420)..."
-GDK_BACKEND=x11 npm run dev
+# Default native Wayland (no XWayland ghosting); AGENTPULSE_GDK_X11=1 to force x11.
+[ -n "$AGENTPULSE_GDK_X11" ] && export GDK_BACKEND=x11
+npm run dev
