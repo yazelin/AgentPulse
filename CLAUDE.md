@@ -265,9 +265,6 @@ page. Per-OS buttons (Linux / macOS arm64 / macOS Intel / Windows) with an
 - **Click-to-focus** — tried xdotool getactivewindow, /proc walk, `$WINDOWID`,
   `X-Window-Id` header. All failed because `gnome-terminal-server` uses one
   PID for all windows. Original Swift version doesn't have this either.
-- **Rust `bounce_window`** — the window-position jitter on collapse moved to a
-  pure CSS `@keyframes capsuleCollapseBounce` animation. Transform-only so it
-  stays on the GPU.
 - **Landing-page iframe drag** — making the capsule inside the iframe draggable
   produced a long tail of cross-frame edge cases (screenX/movementX DPR
   inconsistencies, postMessage async races against fast click-release, overlay
