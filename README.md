@@ -266,7 +266,7 @@ Three scripts for different workflows:
 | `./dev.sh` | Need rebuild | Need rebuild |
 | `./reload.sh` | No effect (cached in old binary) | No effect |
 
-`watch.sh` runs `npm run dev` (`tauri dev` via the bundled `@tauri-apps/cli`) which serves frontend from `http://localhost:1420` via `npx serve`. On Linux it also sets `GDK_BACKEND=x11` to keep the always-on-top hint working under GNOME Wayland.
+`watch.sh` runs `npm run dev` (`tauri dev` via the bundled `@tauri-apps/cli`) which serves frontend from `http://localhost:1420` via `npx serve`. On Linux the scripts default to **native Wayland** (XWayland forces always-on-top but ghosts transparent windows). If the capsule sinks behind other windows on your compositor, force the XWayland path with `AGENTPULSE_GDK_X11=1 ./dev.sh` (or `./watch.sh`).
 
 ## Usage
 
@@ -505,7 +505,7 @@ AgentPulse/
 | `mouseleave` unreliable on transparent windows | Tauri `cursor-left` event from Rust polling thread |
 | `<select>` dropdown uses system native styling | Custom div-based dropdown |
 | CSS `transition` / `animation` causes pixel ghosting | Most transitions removed; bounce via Rust `set_position` thread |
-| GNOME Wayland ignores always-on-top for regular app windows | `watch.sh` / `dev.sh` set `GDK_BACKEND=x11` to run under XWayland where `_NET_WM_STATE_ABOVE` is respected |
+| GNOME Wayland ignores always-on-top for regular app windows | Scripts default to native Wayland (no ghosting). Opt into XWayland — where `_NET_WM_STATE_ABOVE` is respected — with `AGENTPULSE_GDK_X11=1 ./dev.sh`. Trade-off: XWayland forces always-on-top but transparent windows may ghost on some GPUs |
 | `transform: translateZ(0)` creates black compositing layers | Not used |
 | DOM re-render destroys hover state | Smart re-render: structural changes only; timers update in-place |
 | Browser CSP blocks blob URLs and local files | Audio plays via Rust `rodio` (no browser audio at all) |

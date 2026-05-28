@@ -29,7 +29,10 @@ else
 fi
 
 echo "→ Launching $BIN..."
-# GDK_BACKEND=x11 keeps always-on-top working on GNOME Wayland (XWayland path)
-GDK_BACKEND=x11 "$BIN" &
+# Default: native Wayland (avoids XWayland transparent-window ghosting on GNOME).
+# If the capsule sinks behind other windows on your Wayland compositor, opt into
+# the XWayland path with AGENTPULSE_GDK_X11=1 (forces always-on-top, but can ghost).
+[ -n "$AGENTPULSE_GDK_X11" ] && export GDK_BACKEND=x11
+"$BIN" &
 echo "→ PID: $!"
 echo "Done."
