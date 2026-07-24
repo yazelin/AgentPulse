@@ -35,8 +35,11 @@ fundamentally different hook model — not a drop-in rename.
   persisted provider set against the known defaults — dropping the retired
   `gemini` entry and adding `antigravity` — so upgraders see the new provider
   in the UI (and can install its hooks) instead of a dead Gemini toggle. Stale
-  per-provider sound entries are pruned; the JS auto-match repopulates the new
-  provider's sounds on next launch.
+  per-provider sound entries are pruned, and every provider is seeded a default
+  completion/waiting sound (`{id}.mp3` / `{id}-waiting.mp3`) so a migrated or
+  newly added provider is audible immediately — without the user first opening
+  the Sounds tab (whose JS auto-match previously owned this). Explicit user
+  choices (including `__none__`) are never overwritten.
 
 ### Removed
 
