@@ -23,7 +23,7 @@ A cross-platform desktop app that brings **Dynamic Island-inspired** real-time m
 | Provider | Hook Events | Config Location |
 |----------|-------------|-----------------|
 | **Claude Code** | 8 events | `~/.claude/settings.json` |
-| **Gemini CLI** | 9 events | `~/.gemini/settings.json` |
+| **Antigravity CLI** (`agy`) | 3 events | `~/.gemini/config/hooks.json` |
 | **Codex CLI** (OpenAI) | 5 events | `~/.codex/hooks.json` + `config.toml` |
 | **GitHub Copilot CLI** | 6 events | `~/.copilot/config.json` |
 
@@ -31,19 +31,21 @@ Provider icons from [@lobehub/icons](https://github.com/lobehub/lobe-icons).
 
 ### Hook Events per Provider
 
-| Event (normalized) | Claude | Gemini | Codex | Copilot |
-|---------------------|--------|--------|-------|---------|
-| SessionStart | `SessionStart` | `BeforeAgent` | `SessionStart` | `sessionStart` |
+| Event (normalized) | Claude | Antigravity | Codex | Copilot |
+|---------------------|--------|-------------|-------|---------|
+| SessionStart | `SessionStart` | — | `SessionStart` | `sessionStart` |
 | SessionEnd | `SessionEnd` | — | — | `sessionEnd` |
-| UserPromptSubmit | `UserPromptSubmit` | `BeforeModel` | `UserPromptSubmit` | `userPromptSubmitted` |
-| PreToolUse | `PreToolUse` | `BeforeTool` | `PreToolUse` | `preToolUse` |
-| PostToolUse | `PostToolUse` | `AfterTool` | `PostToolUse` | `postToolUse` |
-| Stop | `Stop` | `AfterAgent` / `AfterModel` | `Stop` | `agentStop` / `subagentStop` |
+| UserPromptSubmit | `UserPromptSubmit` | `PreInvocation` | `UserPromptSubmit` | `userPromptSubmitted` |
+| PreToolUse | `PreToolUse` | — | `PreToolUse` | `preToolUse` |
+| PostToolUse | `PostToolUse` | `PostToolUse` | `PostToolUse` | `postToolUse` |
+| Stop | `Stop` | `Stop` | `Stop` | `agentStop` / `subagentStop` |
 | PermissionRequest | `PermissionRequest` | — | — | — |
 | PostToolUseFailure | `PostToolUseFailure` | — | — | — |
-| Notification | — | `Notification` | — | `errorOccurred` |
+| Notification | — | — | — | `errorOccurred` |
 
 All events normalized to PascalCase internally. Each provider's hook command invokes the bundled sidecar binary `agent-pulse-hook`, which reads the event JSON from stdin and POSTs it to `http://localhost:{port}/hook/{provider}`. Going through a native binary instead of an inline shell one-liner keeps hooks shell-agnostic across bash / PowerShell / cmd.exe.
+
+**Antigravity is a special case.** `agy` uses a different hook model from every other provider: a separate `hooks.json` keyed by hook *name* → event → handlers, only 5 event types, and **synchronous** hooks that must print a JSON result on stdout (the stdin payload carries no event-name field — the event is the config key). AgentPulse wires only `PreInvocation` / `PostToolUse` / `Stop` (the events whose stdout contract is satisfied by an empty `{}`), passes the event name to the sidecar as a 2nd arg (`agent-pulse-hook antigravity Stop`), and the sidecar injects it as `hook_event_name` before POSTing, then echoes `{}`. `PreToolUse` is skipped — it demands a `decision` field a passive monitor shouldn't fabricate.
 
 ### Field Name Normalization
 
@@ -143,7 +145,7 @@ Generate Chinese voice notifications using [edge-tts](https://github.com/rany2/e
 pip install edge-tts
 mkdir -p ~/.config/agentpulse/sounds
 
-for p in claude gemini copilot codex; do
+for p in claude antigravity copilot codex; do
   # completion
   edge-tts --voice "zh-TW-HsiaoChenNeural" \
            --text "${p} 任務完成" \
@@ -160,7 +162,7 @@ Audio playback uses [`rodio`](https://github.com/RustAudio/rodio) (Rust-side, no
 ## Features
 
 - **Dynamic Island Style** — Floating capsule expands on hover
-- **Multi-Provider** — Claude, Gemini, Codex, Copilot simultaneously
+- **Multi-Provider** — Claude, Antigravity, Codex, Copilot simultaneously
 - **Provider Icons** — Each session shows provider's official icon (lobehub/icons)
 - **Status Dot** — Inline colored indicator next to project name
 - **3-Line Session Info** — Project name + status, working directory, last prompt (italic)
@@ -273,7 +275,7 @@ Three scripts for different workflows:
 ### First Launch
 
 1. AgentPulse opens with Settings → **Providers** tab. All providers start disabled; detection via `which` only shows a "detected" hint next to each so you know which CLIs are installed.
-2. Toggle each provider you want on — each toggle immediately writes/removes its hook config (`~/.claude/settings.json`, `~/.gemini/settings.json`, etc.). No need to toggle-off-and-on.
+2. Toggle each provider you want on — each toggle immediately writes/removes its hook config (`~/.claude/settings.json`, `~/.gemini/config/hooks.json`, etc.). No need to toggle-off-and-on.
 3. (Optional) Switch to **Sounds** tab, enable **Notification Sounds**, customise per-provider completion and waiting clips.
 4. Close settings — the capsule is ready.
 
@@ -322,7 +324,7 @@ Three scripts for different workflows:
 
 ```
 Claude Code ─┐
-Gemini CLI   │ hook cmd: `agent-pulse-hook <provider>`
+Antigravity  │ hook cmd: `agent-pulse-hook <provider>`
 Codex CLI    │ ──► sidecar binary reads stdin + POSTs ──► AgentPulse HTTP Server
 Copilot CLI  ┘                                            (localhost:19280-19289)
                                                                     │
@@ -357,7 +359,7 @@ Each CLI gets the same logical command: run the sidecar binary, pass the provide
 
 The sidecar reads the stdin body, resolves the live port from `~/.agentpulse/port`, and POSTs to `/hook/<provider_id>`. No bash, no PowerShell, no `$(cat)` — works identically on every OS.
 
-**Why a sidecar?** Before v0.2, hook commands were a bash one-liner using `$(cat)` and `curl`. Each CLI on Windows executes hook commands through a different shell (Claude's optional `shell: powershell` field, Gemini's hard-coded PowerShell, Copilot's separate `powershell` field, Codex — Windows disabled entirely). Maintaining four dialects of the same command is fragile. A native binary invocation sidesteps every shell-quoting edge case.
+**Why a sidecar?** Before v0.2, hook commands were a bash one-liner using `$(cat)` and `curl`. Each CLI on Windows executes hook commands through a different shell (Claude's optional `shell: powershell` field, Copilot's separate `powershell` field, Antigravity via `sh -c` / `cmd /c`, Codex — Windows disabled entirely). Maintaining several dialects of the same command is fragile. A native binary invocation sidesteps every shell-quoting edge case.
 
 **Claude Code** (`~/.claude/settings.json`):
 ```json
@@ -371,14 +373,16 @@ The sidecar reads the stdin body, resolves the live port from `~/.agentpulse/por
 }
 ```
 
-**Gemini CLI** (`~/.gemini/settings.json`):
+**Antigravity CLI** (`~/.gemini/config/hooks.json`) — note the extra hook-name level, the event-name 2nd arg, and no `async` (agy hooks are synchronous):
 ```json
 {
-  "hooks": {
-    "BeforeAgent": [{
+  "agentpulse": {
+    "PreInvocation": [{ "type": "command", "command": "\"/usr/bin/agent-pulse-hook\" antigravity PreInvocation" }],
+    "PostToolUse": [{
       "matcher": "",
-      "hooks": [{ "type": "command", "command": "\"/usr/bin/agent-pulse-hook\" gemini", "async": true }]
-    }]
+      "hooks": [{ "type": "command", "command": "\"/usr/bin/agent-pulse-hook\" antigravity PostToolUse" }]
+    }],
+    "Stop": [{ "type": "command", "command": "\"/usr/bin/agent-pulse-hook\" antigravity Stop" }]
   }
 }
 ```
@@ -423,20 +427,20 @@ hooks = true
     "sound_enabled": true,
     "provider_sounds": {
       "claude": "claude.mp3",
-      "gemini": "gemini.mp3",
+      "antigravity": "antigravity.mp3",
       "codex": "__none__",
       "copilot": "copilot.mp3"
     },
     "provider_waiting_sounds": {
       "claude": "claude-waiting.mp3",
-      "gemini": "gemini-waiting.mp3",
+      "antigravity": "antigravity-waiting.mp3",
       "codex": "__none__",
       "copilot": "copilot-waiting.mp3"
     }
   },
   "providers": {
     "claude": { "enabled": false, "name": "Claude Code", "settings_path": "~/.claude/settings.json" },
-    "gemini": { "enabled": false, "name": "Gemini CLI", "settings_path": "~/.gemini/settings.json" },
+    "antigravity": { "enabled": false, "name": "Antigravity CLI", "settings_path": "~/.gemini/config/hooks.json" },
     "codex": { "enabled": false, "name": "Codex CLI", "settings_path": "~/.codex/hooks.json" },
     "copilot": { "enabled": false, "name": "GitHub Copilot", "settings_path": "~/.copilot/config.json" }
   }
@@ -481,11 +485,11 @@ AgentPulse/
 │           └── agent-pulse-hook.rs # Sidecar binary invoked by CLI hooks; POSTs to localhost
 ├── sounds/                        # Bundled default TTS sounds (zh-TW HsiaoChen voice)
 │   ├── claude.mp3                 # completion clips
-│   ├── gemini.mp3
+│   ├── antigravity.mp3
 │   ├── codex.mp3
 │   ├── copilot.mp3
 │   ├── claude-waiting.mp3         # waiting-for-user clips
-│   ├── gemini-waiting.mp3
+│   ├── antigravity-waiting.mp3
 │   ├── codex-waiting.mp3
 │   └── copilot-waiting.mp3
 ├── watch.sh                       # Dev mode with frontend hot-reload (devUrl)

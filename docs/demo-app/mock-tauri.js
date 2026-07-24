@@ -10,7 +10,7 @@
 // Nothing here ever reaches out to a real server.
 
 (function () {
-  const PROVIDERS = ["claude", "gemini", "codex", "copilot"];
+  const PROVIDERS = ["claude", "antigravity", "codex", "copilot"];
 
   // ── in-memory state ──────────────────────────────────────────────────
   const now = () => new Date().toISOString();
@@ -27,13 +27,13 @@
         sound_enabled: false,
         provider_sounds: {
           claude: "claude.mp3",
-          gemini: "gemini.mp3",
+          antigravity: "antigravity.mp3",
           codex: "codex.mp3",
           copilot: "copilot.mp3",
         },
         provider_waiting_sounds: {
           claude: "claude-waiting.mp3",
-          gemini: "gemini-waiting.mp3",
+          antigravity: "antigravity-waiting.mp3",
           codex: "codex-waiting.mp3",
           copilot: "copilot-waiting.mp3",
         },
@@ -41,7 +41,7 @@
       },
       providers: {
         claude:  { enabled: true,  name: "Claude Code",   settings_path: "~/.claude/settings.json" },
-        gemini:  { enabled: true,  name: "Gemini CLI",    settings_path: "~/.gemini/settings.json" },
+        antigravity: { enabled: true, name: "Antigravity CLI", settings_path: "~/.gemini/config/hooks.json" },
         codex:   { enabled: true,  name: "Codex CLI",     settings_path: "~/.codex/hooks.json" },
         copilot: { enabled: false, name: "GitHub Copilot", settings_path: "~/.copilot/config.json" },
       },
@@ -52,8 +52,8 @@
         start_time: now(), last_event_time: now(),
         cwd: "~/SDD/AgentPulse", last_tool_name: "Edit", last_prompt: "add landing page",
       },
-      "gemini-demo": {
-        id: "gemini-demo", provider: "gemini", state: "idle",
+      "antigravity-demo": {
+        id: "antigravity-demo", provider: "antigravity", state: "idle",
         start_time: now(), last_event_time: now(),
         cwd: "~/projects/ai-experiments", last_tool_name: null, last_prompt: null,
       },
@@ -138,8 +138,8 @@
 
     // sound system
     list_sounds: () => [
-      "claude.mp3", "gemini.mp3", "codex.mp3", "copilot.mp3",
-      "claude-waiting.mp3", "gemini-waiting.mp3", "codex-waiting.mp3", "copilot-waiting.mp3",
+      "claude.mp3", "antigravity.mp3", "codex.mp3", "copilot.mp3",
+      "claude-waiting.mp3", "antigravity-waiting.mp3", "codex-waiting.mp3", "copilot-waiting.mp3",
     ],
     play_sound_file: ({ name }) => {
       try {
@@ -153,7 +153,7 @@
     open_sounds_folder: () => { alert("Opening the sounds folder isn't available in the web demo.\nTry downloading AgentPulse to explore this feature."); return null; },
 
     // providers — main.js invokes "detect_installed_providers"
-    detect_installed_providers: () => ({ claude: true, gemini: true, codex: true, copilot: true }),
+    detect_installed_providers: () => ({ claude: true, antigravity: true, codex: true, copilot: true }),
     check_provider_setup: () => false,
     install_provider_hooks: ({ providerId }) => {
       if (state.config.providers[providerId]) state.config.providers[providerId].enabled = true;
@@ -219,11 +219,11 @@
     // (dt in ms, session id, new state)
     [0,     "claude-demo",  "working"],
     [8000,  "claude-demo",  "idle"],
-    [10000, "gemini-demo",  "working"],
+    [10000, "antigravity-demo", "working"],
     [12000, "codex-demo",   "working"],
     [14000, "claude-demo",  "working"],
     [18000, "codex-demo",   "waiting_for_user"],  // triggers task-waiting sound
-    [23000, "gemini-demo",  "idle"],
+    [23000, "antigravity-demo", "idle"],
     [28000, "claude-demo",  "idle"],                 // triggers task-completed sound
     [30000, "codex-demo",   "working"],
     [34000, "copilot-demo", "working"],              // new session appears

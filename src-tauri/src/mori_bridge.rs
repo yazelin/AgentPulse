@@ -61,7 +61,7 @@ pub fn manifest_json(port: u16) -> String {
         "id": "mori.agent-pulse",
         "name": "AgentPulse",
         "kind": "local_service",
-        "description": "AI coding CLI session pulse — observes Claude / Gemini / Codex / Copilot sessions.",
+        "description": "AI coding CLI session pulse — observes Claude / Antigravity / Codex / Copilot sessions.",
         "capabilities": ["agent.session.observe"],
         "interfaces": [
             { "name": "control", "transport": "http", "base_url": format!("http://127.0.0.1:{port}") },

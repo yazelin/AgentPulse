@@ -7,6 +7,46 @@ description from the matching `## [vX.Y.Z]` section via `release.yml`.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.4.0] — 2026-07-24
+
+Replace Gemini CLI with Antigravity CLI (`agy`).
+
+Google's Gemini CLI is no longer supported, so its provider is removed and
+replaced with **Antigravity CLI** (`agy`, Google's gemini_coder). agy uses a
+fundamentally different hook model — not a drop-in rename.
+
+### Added
+
+- **Antigravity CLI (`agy`) provider.** Hooks live in `~/.gemini/config/hooks.json`
+  as a named-hook schema (`{name: {Event: [handlers]}}`), distinct from every
+  other provider. AgentPulse wires `PreInvocation` → `UserPromptSubmit`,
+  `PostToolUse`, and `Stop`. Detection matches the `agy` binary or the
+  `~/.gemini/antigravity-cli/` config dir. New completion/waiting sounds
+  (`antigravity.mp3` / `antigravity-waiting.mp3`, zh-TW 曉臻 voice) and the
+  official Antigravity icon (from @lobehub/icons).
+- **Sidecar event-name injection.** agy's stdin payload carries no event-name
+  field (the event is implied by the hooks.json key) and its hooks are
+  synchronous (must print a JSON result on stdout). The sidecar now takes an
+  optional 2nd arg — the event name — folds it into the POST body as
+  `hook_event_name`, and echoes `{}`. Only emitted when the 2nd arg is present,
+  so fire-and-forget providers stay silent. `conversationId` added as a
+  `session_id` alias.
+- **Config migration for existing installs.** `load_config` now reconciles the
+  persisted provider set against the known defaults — dropping the retired
+  `gemini` entry and adding `antigravity` — so upgraders see the new provider
+  in the UI (and can install its hooks) instead of a dead Gemini toggle. Stale
+  per-provider sound entries are pruned; the JS auto-match repopulates the new
+  provider's sounds on next launch.
+
+### Removed
+
+- **Gemini CLI provider** — config entry, `install_gemini_hooks`, its
+  `BeforeAgent`/`AfterAgent`/`BeforeModel`/… event mappings, the
+  `hook_cmd_powershell` helper (Gemini was its only user), and the
+  `gemini.mp3` / `gemini-waiting.mp3` sounds. Existing dead Gemini hooks in
+  `~/.gemini/settings.json` are harmless (Gemini CLI is deprecated) but can be
+  removed by hand.
+
 ## [v0.3.0] — 2026-05-28
 
 Mori body-interface integration + Linux launch polish.

@@ -36,6 +36,7 @@ impl RawHookEvent {
         let session_id = get_str(f, "session_id")
             .or_else(|| get_str(f, "sessionId"))
             .or_else(|| get_str(f, "session"))
+            .or_else(|| get_str(f, "conversationId")) // Antigravity CLI (agy)
             .unwrap_or_default();
 
         // hook_event_name: try multiple field names
