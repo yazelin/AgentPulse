@@ -4,7 +4,7 @@ use serde_json::{json, Value};
 use std::path::PathBuf;
 
 /// Check if a provider's hooks are already configured
-pub fn provider_needs_setup(_provider_id: &str, config: &ProviderConfig) -> bool {
+pub fn provider_needs_setup(provider_id: &str, config: &ProviderConfig) -> bool {
     let path = match &config.settings_path {
         Some(p) => expand_path(p),
         None => return true,
@@ -20,8 +20,13 @@ pub fn provider_needs_setup(_provider_id: &str, config: &ProviderConfig) -> bool
         Err(_) => return true,
     };
 
-    // Look for agentpulse marker in hooks
-    let hooks_obj = json.get("hooks").unwrap_or(&json);
+    // Look for the agentpulse marker. Antigravity nests its named hooks one
+    // level deeper (root → "agentpulse" → event), everyone else uses "hooks".
+    let hooks_obj = if provider_id == "antigravity" {
+        json.get("agentpulse").unwrap_or(&json)
+    } else {
+        json.get("hooks").unwrap_or(&json)
+    };
     let hooks = match hooks_obj {
         Value::Object(h) => h,
         _ => return true,
@@ -78,17 +83,13 @@ fn hook_cmd(provider_id: &str) -> String {
     format!("\"{}\" {provider_id}", sidecar_path().display())
 }
 
-/// Gemini CLI on Windows hardcodes `powershell.exe -NoProfile -Command`
-/// for hook execution. PowerShell parses `"path\to\exe.exe" arg` as a bare
-/// string expression (ParserError: UnexpectedToken at `arg`), not a call —
-/// the `&` call operator is required. cmd.exe and bash don't accept the
-/// prefix, so only emit it on Windows.
-fn hook_cmd_powershell(provider_id: &str) -> String {
-    if cfg!(windows) {
-        format!("& {}", hook_cmd(provider_id))
-    } else {
-        hook_cmd(provider_id)
-    }
+/// Like `hook_cmd` but appends the event name as a 2nd arg. Antigravity's
+/// stdin payload carries no event-name field (the event is implied by the
+/// hooks.json key), so we pass it explicitly and the sidecar injects it before
+/// POSTing. agy runs hook commands via `sh -c` / `cmd /c`, so no PowerShell
+/// call-operator dance is needed here.
+fn hook_cmd_ev(provider_id: &str, event: &str) -> String {
+    format!("\"{}\" {provider_id} {event}", sidecar_path().display())
 }
 
 /// Remove only AgentPulse hooks (those containing "agentpulse" string) from a provider's config
@@ -105,6 +106,14 @@ pub fn remove_provider(provider_id: &str, config: &ProviderConfig) -> Result<(),
     let data = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
     let mut root: Value = serde_json::from_str(&data)
         .map_err(|e| format!("malformed JSON in {}: {e}", path.display()))?;
+
+    // Antigravity CLI stores named hooks at the root of hooks.json (no "hooks"
+    // wrapper). AgentPulse owns the "agentpulse" named hook — drop it wholesale.
+    if provider_id == "antigravity" {
+        if let Some(obj) = root.as_object_mut() {
+            obj.remove("agentpulse");
+        }
+    }
 
     if let Some(Value::Object(hooks)) = root.get_mut("hooks") {
         for (_event, entries) in hooks.iter_mut() {
@@ -144,7 +153,7 @@ pub fn install_provider(provider_id: &str, config: &ProviderConfig) -> Result<()
 
     match provider_id {
         "claude" => install_claude_hooks(&path),
-        "gemini" => install_gemini_hooks(&path),
+        "antigravity" => install_antigravity_hooks(&path),
         "codex" => install_codex_hooks(&path),
         "copilot" => install_copilot_hooks(&path),
         _ => Err(format!("Unknown provider: {provider_id}")),
@@ -195,49 +204,49 @@ fn install_claude_hooks(path: &PathBuf) -> Result<(), String> {
     Ok(())
 }
 
-/// Gemini CLI: hooks in ~/.gemini/settings.json
-fn install_gemini_hooks(path: &PathBuf) -> Result<(), String> {
+/// Antigravity CLI (agy): named hooks in ~/.gemini/config/hooks.json.
+///
+/// agy's hook model differs from every other provider:
+///   1. Config is a separate `hooks.json` (not settings.json), keyed by a
+///      hook *name* → event → handlers (one extra level of nesting).
+///   2. Only 5 events exist: PreToolUse / PostToolUse / PreInvocation /
+///      PostInvocation / Stop. No SessionStart/SessionEnd/UserPromptSubmit.
+///   3. Hooks are SYNCHRONOUS — each must print a JSON result on stdout, and
+///      the stdin payload has no event-name field (event = the config key).
+///
+/// So we register under a single AgentPulse-owned name, pass the event to the
+/// sidecar as a 2nd arg (it injects `hook_event_name` before POSTing), and only
+/// wire events whose stdout contract is satisfied by an empty `{}`:
+///   - PreInvocation → fires before each model call (→ SessionStart / Working)
+///   - PostToolUse   → keeps the session Working
+///   - Stop          → turn end (→ Completed)
+/// PreToolUse is skipped on purpose: it demands a `decision` field, and a bare
+/// `{}` would misgate tool execution. No `async` flag — agy blocks on hooks.
+fn install_antigravity_hooks(path: &PathBuf) -> Result<(), String> {
     let mut root = load_or_create_json(path)?;
 
-    let hooks = root
-        .as_object_mut()
-        .ok_or("settings.json root is not an object")?
-        .entry("hooks")
-        .or_insert_with(|| json!({}));
+    // Tool-scoped events use the grouped matcher+hooks shape; lifecycle events
+    // use the flat handler-list shape (per agy's hooks.json spec).
+    let group = |event: &str| json!([{
+        "matcher": "",
+        "hooks": [{ "type": "command", "command": hook_cmd_ev("antigravity", event) }]
+    }]);
+    let flat = |event: &str| json!([{ "type": "command", "command": hook_cmd_ev("antigravity", event) }]);
 
-    let cmd = hook_cmd_powershell("gemini");
+    let spec = json!({
+        "PreInvocation": flat("PreInvocation"),
+        "PostToolUse": group("PostToolUse"),
+        "Stop": flat("Stop"),
+    });
 
-    let events = [
-        "SessionStart", "SessionEnd",
-        "BeforeAgent", "AfterAgent",
-        "BeforeModel", "AfterModel",
-        "BeforeTool", "AfterTool",
-        "Notification",
-    ];
-
-    for event in events {
-        let entry = json!({
-            "matcher": "",
-            "hooks": [{
-                "type": "command",
-                "command": cmd,
-                "async": true
-            }]
-        });
-
-        let event_hooks = hooks
-            .as_object_mut()
-            .ok_or("hooks is not an object")?
-            .entry(event)
-            .or_insert_with(|| json!([]));
-
-        if let Value::Array(ref mut arr) = event_hooks {
-            arr.push(entry);
-        }
-    }
+    // Overwrite the whole AgentPulse-owned named hook — idempotent, no dup
+    // accumulation on repeated installs.
+    root.as_object_mut()
+        .ok_or("hooks.json root is not an object")?
+        .insert("agentpulse".into(), spec);
 
     save_json(path, &root)?;
-    info!("Gemini CLI hooks configured");
+    info!("Antigravity CLI hooks configured");
     Ok(())
 }
 

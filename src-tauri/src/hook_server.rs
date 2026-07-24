@@ -214,21 +214,16 @@ fn parse_provider(data: &[u8]) -> String {
 /// Normalize different CLI event names to a common set
 fn normalize_event_name(event: &mut HookEvent) {
     let normalized = match event.hook_event_name.as_str() {
-        // Gemini CLI events → standard names.
-        // AfterAgent is Gemini's per-turn completion signal (Agent = one
-        // turn, not the whole session), so it maps to Stop.
-        // AfterModel intentionally does NOT map to Stop: BeforeModel/
-        // AfterModel pair fires once per model call, and a single turn
-        // typically runs 2+ model calls when tools are used. Mapping it
-        // to Stop would emit spurious `Completed` mid-turn, and the real
-        // AfterAgent at end-of-turn would get swallowed because state is
-        // already Idle. AfterModel falls through to the state machine's
-        // no-op arm so state stays Working until AfterAgent closes it.
-        "BeforeAgent" => "SessionStart",
-        "AfterAgent" => "Stop",
-        "BeforeTool" => "PreToolUse",
-        "AfterTool" => "PostToolUse",
-        "BeforeModel" => "UserPromptSubmit",
+        // Antigravity CLI (agy). The sidecar injects the event name from the
+        // hooks.json key (agy's stdin payload carries none). `PostToolUse` and
+        // `Stop` are already standard PascalCase and pass through below.
+        // `PreInvocation` fires before each model call → UserPromptSubmit,
+        // which puts the session Working. (SessionStart would set Idle, so a
+        // tool-less turn would never reach Working and its `Stop` wouldn't
+        // emit Completed — no sound. UserPromptSubmit is robust to that.)
+        // It is deliberately NOT mapped to Stop — only agy's real `Stop` ends
+        // a turn.
+        "PreInvocation" => "UserPromptSubmit",
         // GitHub Copilot CLI events (camelCase) → standard names
         "sessionStart" => "SessionStart",
         "sessionEnd" => "SessionEnd",

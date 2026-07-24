@@ -86,11 +86,11 @@ fn sounds_dir() -> std::path::PathBuf {
 fn seed_default_sounds(dir: &std::path::Path) {
     let defaults: &[(&str, &[u8])] = &[
         ("claude.mp3", include_bytes!("../../sounds/claude.mp3")),
-        ("gemini.mp3", include_bytes!("../../sounds/gemini.mp3")),
+        ("antigravity.mp3", include_bytes!("../../sounds/antigravity.mp3")),
         ("codex.mp3", include_bytes!("../../sounds/codex.mp3")),
         ("copilot.mp3", include_bytes!("../../sounds/copilot.mp3")),
         ("claude-waiting.mp3", include_bytes!("../../sounds/claude-waiting.mp3")),
-        ("gemini-waiting.mp3", include_bytes!("../../sounds/gemini-waiting.mp3")),
+        ("antigravity-waiting.mp3", include_bytes!("../../sounds/antigravity-waiting.mp3")),
         ("codex-waiting.mp3", include_bytes!("../../sounds/codex-waiting.mp3")),
         ("copilot-waiting.mp3", include_bytes!("../../sounds/copilot-waiting.mp3")),
     ];
