@@ -129,11 +129,23 @@ fn reconcile_providers(config: &mut AppConfig) {
     for (id, def) in known {
         config.providers.entry(id).or_insert(def);
     }
-    // Drop sound-map entries for providers that no longer exist; the JS
-    // auto-match repopulates a new provider's sounds on next launch.
-    let ids: std::collections::HashSet<String> = config.providers.keys().cloned().collect();
+    // Drop sound-map entries for removed providers, then seed a default sound
+    // for any provider that lacks one. Without the seed, a newly added/migrated
+    // provider (e.g. antigravity) stays silent on completion until the user
+    // opens the Sounds tab — the JS auto-match only runs when that UI renders.
+    // play_sound_file no-ops if the file is missing, so seeding `{id}.mp3` is
+    // safe even when a custom provider has no bundled clip.
+    let ids: Vec<String> = config.providers.keys().cloned().collect();
     config.appearance.provider_sounds.retain(|id, _| ids.contains(id));
     config.appearance.provider_waiting_sounds.retain(|id, _| ids.contains(id));
+    for id in &ids {
+        config.appearance.provider_sounds
+            .entry(id.clone())
+            .or_insert_with(|| format!("{id}.mp3"));
+        config.appearance.provider_waiting_sounds
+            .entry(id.clone())
+            .or_insert_with(|| format!("{id}-waiting.mp3"));
+    }
 }
 
 pub fn save_config(config: &AppConfig) -> Result<(), String> {
@@ -207,6 +219,8 @@ mod tests {
             settings_path: Some("~/.gemini/settings.json".into()),
         });
         cfg.appearance.provider_sounds.insert("gemini".into(), "gemini.mp3".into());
+        // A user who explicitly muted claude's completion sound.
+        cfg.appearance.provider_sounds.insert("claude".into(), "__none__".into());
 
         reconcile_providers(&mut cfg);
 
@@ -217,5 +231,13 @@ mod tests {
         assert!(cfg.providers["claude"].enabled, "existing enabled state preserved");
         assert!(!cfg.appearance.provider_sounds.contains_key("gemini"),
                 "stale gemini sound key dropped");
+        // The migration gap this fix closes: antigravity gets an audible
+        // default without the user opening Settings first.
+        assert_eq!(cfg.appearance.provider_sounds.get("antigravity").map(String::as_str),
+                   Some("antigravity.mp3"), "antigravity completion sound seeded");
+        assert_eq!(cfg.appearance.provider_waiting_sounds.get("antigravity").map(String::as_str),
+                   Some("antigravity-waiting.mp3"), "antigravity waiting sound seeded");
+        assert_eq!(cfg.appearance.provider_sounds.get("claude").map(String::as_str),
+                   Some("__none__"), "explicit user sound choice must not be overwritten");
     }
 }
