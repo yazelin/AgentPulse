@@ -25,6 +25,7 @@ src-tauri/src/
   hook_event.rs             # RawHookEvent normalizer (field aliases across CLIs)
   hook_server.rs            # tokio HTTP listener, provider routing, event-name mapping
   hooks_configurator.rs     # per-provider hook install/remove — writes sidecar invocations
+  telegram.rs               # Telegram Bot sendMessage (ureq, blocking, fire-and-forget)
   bin/
     agent-pulse-hook.rs     # standalone sidecar binary CLIs invoke via hook config
 src/
@@ -199,6 +200,18 @@ Bundled defaults ship 8 TTS clips (Taiwanese voice `zh-TW-HsiaoChenNeural` /
 曉臻): `{provider}.mp3` + `{provider}-waiting.mp3`. Auto-matching on first
 launch matches filename prefix (e.g. `claude.mp3` → claude completion,
 `claude-waiting.mp3` → claude waiting).
+
+## Telegram notifications (telegram.rs)
+
+Same two triggers as sounds (`Completed` / `StartedWaiting`), wired at the
+transition match in lib.rs. Config lives in `AppConfig.telegram` (bot_token /
+chat_id / notify_completed / notify_waiting), read from the managed
+`AppConfigState` at notify time so UI saves apply immediately. Send is `ureq`
+(blocking, rustls) on a spawned thread — fire-and-forget, no retry, failures
+logged. `test_telegram` is an **async** command wrapping `spawn_blocking`
+(sync commands run on the main thread — would freeze the UI for up to the
+10 s timeout). Demo app's mock rejects `test_telegram` with a "not available
+in the web demo" message.
 
 ## Single instance
 

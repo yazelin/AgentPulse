@@ -159,6 +159,25 @@ done
 
 Audio playback uses [`rodio`](https://github.com/RustAudio/rodio) (Rust-side, no browser CSP issues).
 
+## Telegram Notifications
+
+Get a Telegram message when a task completes or a session waits for your input — useful when you step away from the machine. Same triggers as the sound system, independent on/off per trigger.
+
+Message format: `[AgentPulse] claude 任務完成 — ~/work/backend`
+
+### Setup
+
+1. Create a bot: message [@BotFather](https://t.me/BotFather) on Telegram → `/newbot` → copy the **bot token** (looks like `123456:ABC-DEF...`)
+2. Get your **chat ID**: send any message to your new bot, then open `https://api.telegram.org/bot<TOKEN>/getUpdates` in a browser — your chat ID is in `result[].message.chat.id`. (Or message [@userinfobot](https://t.me/userinfobot).)
+3. Open Settings → **Telegram** tab → paste the token and chat ID
+4. Enable **Notify on Complete** and/or **Notify on Waiting**
+5. Click **Send Test Message** to verify — errors from the Telegram API (bad token, wrong chat ID) are shown inline
+
+Notes:
+
+- Sending happens in the Rust backend (no webview CSP involvement); failures are logged and never retried — the capsule still shows the state
+- The token is stored in plain text in `~/.config/agentpulse/config.json`, same as the rest of the config (single-user local app)
+
 ## Features
 
 - **Dynamic Island Style** — Floating capsule expands on hover
@@ -169,6 +188,7 @@ Audio playback uses [`rodio`](https://github.com/RustAudio/rodio) (Rust-side, no
 - **Remove Session** — X button appears on row hover, click to remove
 - **Smart Re-render** — Timer updates in-place, only structural changes trigger full re-render
 - **Per-Provider Sounds** — Each CLI has independent sounds for completion and waiting-for-user states (Rust rodio)
+- **Telegram Notifications** — Optional bot message on completion / waiting-for-user, with in-app test button
 - **Single Instance** — Second launch focuses the running window; no duplicate tray icons
 - **Bounce Animation** — Window bounces when collapsing
 - **Draggable** — Drag capsule anywhere
@@ -314,6 +334,8 @@ Three scripts for different workflows:
 
 <p align="center"><img src="assets/settings-sounds.png" alt="Sounds tab" width="300" /></p>
 
+**Telegram tab** — Bot Token (masked) and Chat ID fields, independent toggles for **Notify on Complete** / **Notify on Waiting**, and a **Send Test Message** button that reports the Telegram API response inline. See [Telegram Notifications](#telegram-notifications) for how to get a token and chat ID.
+
 **Appearance tab** — Light theme toggle, Keep Expanded toggle (pin the panel), accent color picker (Purple / Cyan / Green / Orange / Pink), size selector (S / M / L).
 
 <p align="center"><img src="assets/settings-appearance.png" alt="Appearance tab" width="300" /></p>
@@ -443,6 +465,12 @@ hooks = true
     "antigravity": { "enabled": false, "name": "Antigravity CLI", "settings_path": "~/.gemini/config/hooks.json" },
     "codex": { "enabled": false, "name": "Codex CLI", "settings_path": "~/.codex/hooks.json" },
     "copilot": { "enabled": false, "name": "GitHub Copilot", "settings_path": "~/.copilot/config.json" }
+  },
+  "telegram": {
+    "bot_token": "",
+    "chat_id": "",
+    "notify_completed": false,
+    "notify_waiting": false
   }
 }
 ```
