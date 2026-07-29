@@ -7,6 +7,24 @@ description from the matching `## [vX.Y.Z]` section via `release.yml`.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.5.2] — 2026-07-29
+
+### Fixed
+
+- **Window clipped ~30px at the bottom on the real app.** WebKit's
+  `scrollHeight` omits descendants' bottom margins, so the window was sized
+  shorter than the content: the expanded view's action bar (GitHub /
+  Settings / Pin) and the settings panels' bottom padding were cut off.
+  Chrome-based tooling measures correctly, which is why the web demo looked
+  fine. `fitWindow` now measures the rendered bottom edge of each visible
+  view (`getBoundingClientRect().bottom` + margin) — engine-independent.
+- **Settings close button pushed outside the window.** The fourth tab
+  (Telegram, added in v0.5.0) overflowed the 300px-wide tab row and shoved
+  the X button off-screen (reproducible on the web demo too). Tab inline
+  padding reduced 10px → 6px.
+- Landing page hero badge no longer hardcodes a stale version ("v0.2 — now
+  cross-platform"); it now shows the latest release tag via the GitHub API.
+
 ## [v0.5.1] — 2026-07-29
 
 ### Fixed
