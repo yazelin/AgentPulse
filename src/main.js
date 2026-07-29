@@ -35,7 +35,20 @@ const $ = (id) => document.getElementById(id);
 // ─── Window resize ───
 async function fitWindow() {
   await new Promise(r => requestAnimationFrame(r));
-  const h = Math.max(Math.ceil(document.getElementById("app").scrollHeight) + 2, 46);
+  // Measure the rendered bottom edge of each visible view instead of
+  // #app.scrollHeight: WebKit's scrollHeight omits descendants' bottom
+  // margins, which clipped ~30px off every view (settings padding, the
+  // expanded view's action bar) while Chrome-based dev tools showed no bug.
+  const app = document.getElementById("app");
+  const top = app.getBoundingClientRect().top;
+  let bottom = top;
+  for (const el of app.children) {
+    if (el.classList.contains("hidden")) continue;
+    const r = el.getBoundingClientRect();
+    const mb = parseFloat(getComputedStyle(el).marginBottom) || 0;
+    bottom = Math.max(bottom, r.bottom + mb);
+  }
+  const h = Math.max(Math.ceil(bottom - top) + 2, 46);
   await invoke("resize_window", { width: W, height: h });
 }
 
