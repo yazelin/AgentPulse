@@ -206,17 +206,20 @@ async function init() {
     saveConfig();
   });
 
-  // Telegram settings
-  const tg = appConfig.telegram ||
+  // Telegram settings. Always dereference appConfig.telegram at event time —
+  // the provider install flow REPLACES the appConfig object (get_config after
+  // hook install), so a reference captured here would mutate an orphan and
+  // edits would silently stop persisting.
+  const tgConf = () => appConfig.telegram ||
     (appConfig.telegram = { bot_token: "", chat_id: "", notify_completed: false, notify_waiting: false });
-  $("tg-token").value = tg.bot_token;
-  $("tg-chat-id").value = tg.chat_id;
-  $("tg-notify-completed").checked = tg.notify_completed;
-  $("tg-notify-waiting").checked = tg.notify_waiting;
-  $("tg-token").addEventListener("change", (e) => { tg.bot_token = e.target.value.trim(); saveConfig(); });
-  $("tg-chat-id").addEventListener("change", (e) => { tg.chat_id = e.target.value.trim(); saveConfig(); });
-  $("tg-notify-completed").addEventListener("change", (e) => { tg.notify_completed = e.target.checked; saveConfig(); });
-  $("tg-notify-waiting").addEventListener("change", (e) => { tg.notify_waiting = e.target.checked; saveConfig(); });
+  $("tg-token").value = tgConf().bot_token;
+  $("tg-chat-id").value = tgConf().chat_id;
+  $("tg-notify-completed").checked = tgConf().notify_completed;
+  $("tg-notify-waiting").checked = tgConf().notify_waiting;
+  $("tg-token").addEventListener("change", (e) => { tgConf().bot_token = e.target.value.trim(); saveConfig(); });
+  $("tg-chat-id").addEventListener("change", (e) => { tgConf().chat_id = e.target.value.trim(); saveConfig(); });
+  $("tg-notify-completed").addEventListener("change", (e) => { tgConf().notify_completed = e.target.checked; saveConfig(); });
+  $("tg-notify-waiting").addEventListener("change", (e) => { tgConf().notify_waiting = e.target.checked; saveConfig(); });
   $("btn-tg-test").addEventListener("click", async () => {
     const out = $("tg-test-result");
     out.textContent = "Sending...";
