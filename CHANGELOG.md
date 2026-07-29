@@ -7,6 +7,24 @@ description from the matching `## [vX.Y.Z]` section via `release.yml`.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.5.0] — 2026-07-29
+
+Telegram notifications — a second notification channel alongside the sound
+system, for when you're away from the machine.
+
+### Added
+
+- **Telegram notifications.** Optional bot message on the same two triggers as
+  sounds (task completed / waiting for user input), each with its own toggle.
+  New **Telegram** tab in Settings: Bot Token (masked), Chat ID, and a
+  **Send Test Message** button that shows the Telegram API response inline so
+  a bad token or chat ID is caught on the spot. Message format:
+  `[AgentPulse] claude 任務完成 — ~/work/backend`. Sending happens in the Rust
+  backend (`ureq` + rustls, fire-and-forget, no retry); the webview CSP is
+  untouched. Config lives in a new `telegram` block in `config.json` — older
+  configs load unchanged. The web demo shows the full Telegram tab; its test
+  button explains that sending needs the desktop app.
+
 ## [v0.4.0] — 2026-07-24
 
 Replace Gemini CLI with Antigravity CLI (`agy`).
