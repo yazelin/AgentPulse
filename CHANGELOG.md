@@ -7,6 +7,18 @@ description from the matching `## [vX.Y.Z]` section via `release.yml`.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.5.1] — 2026-07-29
+
+### Fixed
+
+- **Telegram settings silently not saving after a provider toggle.** The
+  Telegram tab captured a reference to `appConfig.telegram` at startup, but
+  the provider install flow replaces the whole `appConfig` object — so once
+  you toggled any provider, later Telegram edits mutated an orphan object and
+  never persisted (the test button still worked because it reads the input
+  fields directly). Listeners now dereference `appConfig.telegram` at event
+  time, matching every other settings listener.
+
 ## [v0.5.0] — 2026-07-29
 
 Telegram notifications — a second notification channel alongside the sound
