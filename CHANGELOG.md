@@ -7,6 +7,18 @@ description from the matching `## [vX.Y.Z]` section via `release.yml`.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v0.5.3] — 2026-07-29
+
+### Fixed
+
+- **Copilot hook install silently failing on Copilot CLI ≥1.0.7x.** The new
+  CLI writes `//` header comments into `~/.copilot/config.json` (JSONC),
+  which strict JSON parsing rejected — toggling the Copilot provider flipped
+  the checkbox but never wrote the hooks. Full-line comments are now
+  stripped before parsing (inline `//` inside strings is untouched). Hooks
+  still target the global `config.json`, which current Copilot docs list as
+  the user-level hooks location.
+
 ## [v0.5.2] — 2026-07-29
 
 ### Fixed
