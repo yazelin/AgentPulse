@@ -397,7 +397,20 @@ fn ensure_codex_hooks_feature(original: &str) -> String {
 fn load_or_create_json(path: &PathBuf) -> Result<Value, String> {
     if path.exists() {
         let data = std::fs::read_to_string(path).map_err(|e| e.to_string())?;
-        serde_json::from_str(&data).map_err(|e| format!("{} contains malformed JSON: {e}", path.display()))
+        // Copilot CLI ≥1.0.7x writes `//` header comments into config.json
+        // (JSONC), which strict serde_json rejects — so hook install silently
+        // failed. Drop full-line comments before parsing; inline `//` is left
+        // alone (URLs). Comments are not preserved on save — the file is
+        // machine-managed and valid JSON remains acceptable to the CLI.
+        let stripped: String = data
+            .lines()
+            .filter(|l| !l.trim_start().starts_with("//"))
+            .collect::<Vec<_>>()
+            .join("\n");
+        if stripped.trim().is_empty() {
+            return Ok(json!({}));
+        }
+        serde_json::from_str(&stripped).map_err(|e| format!("{} contains malformed JSON: {e}", path.display()))
     } else {
         Ok(json!({}))
     }
@@ -415,6 +428,20 @@ fn save_json(path: &PathBuf, value: &Value) -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::ensure_codex_hooks_feature;
+
+    #[test]
+    fn load_json_tolerates_copilot_jsonc_comments() {
+        let dir = std::env::temp_dir().join("agentpulse-test-jsonc");
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("config.json");
+        std::fs::write(&path,
+            "// User settings belong in settings.json.\n// This file is managed automatically.\n{\n  \"banner\": \"once\",\n  \"url\": \"https://github.com\"\n}\n"
+        ).unwrap();
+        let v = super::load_or_create_json(&path).unwrap();
+        assert_eq!(v["banner"], "once");
+        assert_eq!(v["url"], "https://github.com", "inline // in strings must survive");
+        std::fs::remove_dir_all(&dir).ok();
+    }
 
     #[test]
     fn migrates_deprecated_codex_hooks_in_place() {
