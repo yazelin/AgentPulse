@@ -19,6 +19,7 @@
     port: 19280,
     config: {
       setup_done: true,
+      telegram: { bot_token: "", chat_id: "", notify_completed: false, notify_waiting: false },
       appearance: {
         accent_color: "purple",
         text_size: "medium",
@@ -153,6 +154,8 @@
     open_sounds_folder: () => { alert("Opening the sounds folder isn't available in the web demo.\nTry downloading AgentPulse to explore this feature."); return null; },
 
     // providers — main.js invokes "detect_installed_providers"
+    test_telegram: () => Promise.reject("not available in the web demo \u2014 download AgentPulse to send real Telegram messages"),
+
     detect_installed_providers: () => ({ claude: true, antigravity: true, codex: true, copilot: true }),
     check_provider_setup: () => false,
     install_provider_hooks: ({ providerId }) => {

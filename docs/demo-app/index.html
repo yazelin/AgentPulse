@@ -80,6 +80,7 @@
         <div class="settings-tabs">
           <button class="settings-tab active" data-tab="providers">Providers</button>
           <button class="settings-tab" data-tab="sounds">Sounds</button>
+          <button class="settings-tab" data-tab="telegram">Telegram</button>
           <button class="settings-tab" data-tab="appearance">Appearance</button>
         </div>
         <button id="btn-close-settings" class="icon-btn">
@@ -107,6 +108,28 @@
             <div id="provider-sounds-list"></div>
             <div class="sound-header"><label class="setting-label">On Waiting For User</label></div>
             <div id="provider-waiting-sounds-list"></div>
+          </div>
+        </div>
+        <div class="settings-tab-panel" data-panel="telegram">
+          <div class="setting-group-col">
+            <label class="setting-label">Bot Token</label>
+            <input type="password" id="tg-token" class="text-input" placeholder="123456:ABC-DEF..." autocomplete="off" />
+          </div>
+          <div class="setting-group-col">
+            <label class="setting-label">Chat ID</label>
+            <input type="text" id="tg-chat-id" class="text-input" placeholder="123456789" autocomplete="off" />
+          </div>
+          <div class="setting-group">
+            <div><div class="setting-main-label">Notify on Complete</div><div class="setting-sub-label">Send message when a task finishes</div></div>
+            <label class="toggle"><input type="checkbox" id="tg-notify-completed" /><span class="toggle-slider"></span></label>
+          </div>
+          <div class="setting-group">
+            <div><div class="setting-main-label">Notify on Waiting</div><div class="setting-sub-label">Send message when input is needed</div></div>
+            <label class="toggle"><input type="checkbox" id="tg-notify-waiting" /><span class="toggle-slider"></span></label>
+          </div>
+          <div class="setting-group-col">
+            <button id="btn-tg-test" class="tg-test-btn">Send Test Message</button>
+            <div id="tg-test-result" class="setting-sub-label"></div>
           </div>
         </div>
         <div class="settings-tab-panel" data-panel="appearance">

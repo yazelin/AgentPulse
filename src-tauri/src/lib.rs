@@ -4,6 +4,7 @@ mod hook_server;
 mod hooks_configurator;
 mod mori_bridge;
 mod session;
+mod telegram;
 
 use config::{AppConfig, load_config, save_config, detect_providers};
 use hook_server::HookServer;
@@ -57,6 +58,17 @@ fn save_app_config(config_state: tauri::State<AppConfigState>, new_config: AppCo
 #[tauri::command]
 fn detect_installed_providers() -> std::collections::HashMap<String, bool> {
     detect_providers()
+}
+
+/// Async so the blocking HTTP call never runs on the main thread
+/// (sync Tauri commands do — see CLAUDE.md Tauri gotchas).
+#[tauri::command]
+async fn test_telegram(bot_token: String, chat_id: String) -> Result<(), String> {
+    tauri::async_runtime::spawn_blocking(move || {
+        telegram::send(&bot_token, &chat_id, "[AgentPulse] 測試訊息:Telegram 通知已就緒")
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }
 
 #[tauri::command]
@@ -416,9 +428,17 @@ pub fn run() {
                                 match transition {
                                     session::SessionTransition::Completed => {
                                         let _ = h.emit("task-completed", event.provider.clone());
+                                        let tg = h.state::<AppConfigState>().0.lock().unwrap().telegram.clone();
+                                        if tg.notify_completed {
+                                            telegram::notify(&tg, &event.provider, "任務完成", event.cwd.as_deref());
+                                        }
                                     }
                                     session::SessionTransition::StartedWaiting => {
                                         let _ = h.emit("task-waiting", event.provider.clone());
+                                        let tg = h.state::<AppConfigState>().0.lock().unwrap().telegram.clone();
+                                        if tg.notify_waiting {
+                                            telegram::notify(&tg, &event.provider, "等待輸入", event.cwd.as_deref());
+                                        }
                                     }
                                     session::SessionTransition::None => {}
                                 }
@@ -539,6 +559,7 @@ pub fn run() {
             get_config,
             save_app_config,
             detect_installed_providers,
+            test_telegram,
             check_provider_setup,
             install_provider_hooks,
             remove_provider_hooks,

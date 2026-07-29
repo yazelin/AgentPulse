@@ -10,6 +10,22 @@ pub struct AppConfig {
     pub appearance: AppearanceConfig,
     #[serde(default = "default_providers")]
     pub providers: HashMap<String, ProviderConfig>,
+    #[serde(default)]
+    pub telegram: TelegramConfig,
+}
+
+/// Telegram Bot notification. Token/chat_id stored in plain text like the
+/// rest of config.json — single-user local app.
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct TelegramConfig {
+    #[serde(default)]
+    pub bot_token: String,
+    #[serde(default)]
+    pub chat_id: String,
+    #[serde(default)]
+    pub notify_completed: bool,
+    #[serde(default)]
+    pub notify_waiting: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -93,6 +109,7 @@ impl Default for AppConfig {
             setup_done: false,
             appearance: AppearanceConfig::default(),
             providers: default_providers(),
+            telegram: TelegramConfig::default(),
         }
     }
 }
@@ -203,6 +220,14 @@ fn which_exists(cmd: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn old_config_without_telegram_key_gets_defaults() {
+        let cfg: AppConfig = serde_json::from_str(r#"{"setup_done": true}"#).unwrap();
+        assert!(cfg.telegram.bot_token.is_empty());
+        assert!(!cfg.telegram.notify_completed);
+        assert!(!cfg.telegram.notify_waiting);
+    }
 
     #[test]
     fn reconcile_drops_gemini_and_adds_antigravity_preserving_enabled() {
